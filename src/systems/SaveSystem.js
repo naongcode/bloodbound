@@ -52,6 +52,14 @@ export default class SaveSystem {
     } catch { return null; }
   }
 
+  // ── 로컬 캐시 즉시 로드 (동기, localStorage만 조회) ──
+  static loadSync() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+
   // ── 저장 여부 확인 ────────────────────────────────
   static hasSave() {
     if (AuthManager.isLoggedIn()) return AuthManager.hasSaveData();

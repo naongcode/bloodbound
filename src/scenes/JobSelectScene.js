@@ -52,10 +52,10 @@ export default class JobSelectScene extends Phaser.Scene {
       this._makeJobCard(cx, cardCY, cardW, cardH, job);
     });
 
-    // 계속하기 버튼 (세이브 존재 시)
+    // 계속하기 버튼 (세이브 존재 시) — loadSync으로 즉시 표시, 이후 클라우드 데이터 동기화
     if (SaveSystem.hasSave()) {
-      const save = SaveSystem.load();
-      if (save) this._makeContinueButton(save);
+      const syncSave = SaveSystem.loadSync();
+      if (syncSave) this._makeContinueButton(syncSave);
     }
 
     // 멀티플레이 버튼
@@ -99,11 +99,7 @@ export default class JobSelectScene extends Phaser.Scene {
     btn.on('pointerover', () => { btn.setFillStyle(0x1a003a); txt.setStyle({ fill: '#ffffff' }); });
     btn.on('pointerout',  () => { btn.setFillStyle(0x0d001f); txt.setStyle({ fill: '#bb88ff' }); });
     btn.on('pointerdown', () => {
-      // 직업이 선택되지 않았으면 warrior 기본값
-      this._pendingMulti = true;
-      // 직업 카드에서 선택 시 LobbyScene으로 이동하도록 플래그 설정 없이
-      // 여기서는 마지막으로 선택된 직업 or 기본값으로 로비 진입
-      const savedJob = SaveSystem.load()?.jobKey ?? 'warrior';
+      const savedJob = SaveSystem.loadSync()?.jobKey ?? 'warrior';
       this.cameras.main.fadeOut(200, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
         this.scene.start('LobbyScene', { jobKey: savedJob });

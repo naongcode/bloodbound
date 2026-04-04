@@ -38,8 +38,17 @@ export default class GameScene extends Phaser.Scene {
 
     // 세이브 로드 or 신규 시작 장비
     if (this._loadSave) {
-      const saveData = SaveSystem.load();
-      if (saveData) SaveSystem.apply(this.player, saveData, this.inventorySystem);
+      // 1) localStorage 캐시를 즉시 적용 (프레임 끊김 없음)
+      const cached = SaveSystem.loadSync();
+      if (cached) SaveSystem.apply(this.player, cached, this.inventorySystem);
+
+      // 2) 클라우드 최신 데이터로 덮어쓰기 (비동기, 차이 있을 때만)
+      SaveSystem.load().then(saveData => {
+        if (saveData) {
+          SaveSystem.apply(this.player, saveData, this.inventorySystem);
+          this.events.emit('statsChanged', this.player);
+        }
+      }).catch(e => console.warn('[GameScene] 세이브 로드 실패:', e));
     } else {
       this.inventorySystem.addItem(this.player.inventory, 'iron_sword');
       this.inventorySystem.addItem(this.player.inventory, 'leather_armor');
