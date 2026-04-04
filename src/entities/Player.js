@@ -85,7 +85,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // ── 마우스 클릭 → 투사체 발사 ───────────────────────────
     scene.input.on('pointerdown', (ptr) => {
-      if (ptr.leftButtonDown()) this.shoot(ptr.worldX, ptr.worldY);
+      if (ptr.leftButtonDown()) {
+        const wp = scene.cameras.main.getWorldPoint(ptr.x, ptr.y);
+        this.shoot(wp.x, wp.y);
+      }
     });
   }
 
@@ -155,8 +158,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.regenTimer += delta;
     if (this.regenTimer >= 1000) {
       this.regenTimer = 0;
-      const regenHp = Math.floor(this.totalStats.VIT * 0.02);
-      const regenMp = Math.floor(this.totalStats.WIS * 0.05);
+      const regenHp = Math.max(1, Math.floor(this.totalStats.VIT * 0.02));
+      const regenMp = Math.max(1, Math.floor(this.totalStats.WIS * 0.05));
       this.hp = Math.min(this.maxHp, this.hp + regenHp);
       this.mp = Math.min(this.maxMp, this.mp + regenMp);
     }
@@ -201,8 +204,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       player: this,
       skill:   this.skillDef.key,
       x: this.x, y: this.y,
-      targetX: this._pointer.worldX,
-      targetY: this._pointer.worldY,
+      targetX: this.scene.cameras.main.getWorldPoint(this._pointer.x, this._pointer.y).x,
+      targetY: this.scene.cameras.main.getWorldPoint(this._pointer.x, this._pointer.y).y,
     });
   }
 
@@ -211,8 +214,11 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (!this._aimLine) this._aimLine = this.scene.add.graphics().setDepth(5);
     this._aimLine.clear();
 
-    const wx = this._pointer.worldX;
-    const wy = this._pointer.worldY;
+    // UIScene 병렬 실행 시 카메라 선택 오류 방지 — GameScene 카메라로 명시 변환
+    const cam = this.scene.cameras.main;
+    const wp  = cam.getWorldPoint(this._pointer.x, this._pointer.y);
+    const wx  = wp.x;
+    const wy  = wp.y;
 
     if (wx < this.x) this.setFlipX(true);
     else              this.setFlipX(false);
@@ -235,7 +241,8 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   // ── Space 키 → 마우스 방향 발사 ──────────────────────────────
   handleKeyboardShoot() {
     if (Phaser.Input.Keyboard.JustDown(this.keys.attack)) {
-      this.shoot(this._pointer.worldX, this._pointer.worldY);
+      const wp = this.scene.cameras.main.getWorldPoint(this._pointer.x, this._pointer.y);
+      this.shoot(wp.x, wp.y);
     }
   }
 

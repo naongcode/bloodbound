@@ -44,8 +44,8 @@ export default class GameScene extends Phaser.Scene {
       this.inventorySystem.addItem(this.player.inventory, 'iron_sword');
       this.inventorySystem.addItem(this.player.inventory, 'leather_armor');
       this.inventorySystem.addItem(this.player.inventory, 'hp_potion_small', 5);
-      this.inventorySystem.equip(this.player, 0);
-      this.inventorySystem.equip(this.player, 0);
+      this.inventorySystem.equip(this.player, 0); // iron_sword (slot 0)
+      this.inventorySystem.equip(this.player, 1); // leather_armor (slot 1)
     }
 
     // E 키 (NPC 상호작용)
@@ -486,7 +486,7 @@ export default class GameScene extends Phaser.Scene {
       };
       const baby = this.spawnMonster('blood_slime');
       if (baby) {
-        baby.x = sx; baby.y = sy;
+        baby.setPosition(sx, sy);
         baby.maxHp = splitData.baseHp;
         baby.hp    = splitData.baseHp;
         baby.monsterData = splitData;
