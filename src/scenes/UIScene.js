@@ -19,12 +19,24 @@ export default class UIScene extends Phaser.Scene {
     this.buildInventoryPanel();
     this.buildStatusPanel();
 
-    // GameScene 이벤트 구독
-    this.gameScene.events.on('statsChanged',     () => this.refreshAll());
-    this.gameScene.events.on('levelUp',          () => this.refreshAll());
-    this.gameScene.events.on('inventoryChanged', () => this.refreshInventory());
-    this.gameScene.events.on('equipmentChanged', () => this.refreshEquipment());
+    // GameScene 이벤트 구독 (참조 보관 → shutdown 시 해제)
+    this._cbStats = () => this.refreshAll();
+    this._cbLevel = () => this.refreshAll();
+    this._cbInv   = () => this.refreshInventory();
+    this._cbEquip = () => this.refreshEquipment();
+    this.gameScene.events.on('statsChanged',     this._cbStats);
+    this.gameScene.events.on('levelUp',          this._cbLevel);
+    this.gameScene.events.on('inventoryChanged', this._cbInv);
+    this.gameScene.events.on('equipmentChanged', this._cbEquip);
     // statusApplied → updateStatusIcons()에서 매 프레임 동적 갱신
+
+    // UIScene이 중지될 때 gameScene 이벤트에서 콜백 제거 (좀비 리스너 방지)
+    this.events.on('shutdown', () => {
+      this.gameScene.events.off('statsChanged',     this._cbStats);
+      this.gameScene.events.off('levelUp',          this._cbLevel);
+      this.gameScene.events.off('inventoryChanged', this._cbInv);
+      this.gameScene.events.off('equipmentChanged', this._cbEquip);
+    });
 
     // I 키 → 인벤토리 토글
     this.input.keyboard.on('keydown-I', () => this.toggleInventory());

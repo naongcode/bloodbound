@@ -217,6 +217,12 @@ export default class GameScene extends Phaser.Scene {
 
   // ── 이벤트 설정 ───────────────────────────────────────────
   setupEvents() {
+    // 중복 등록 방지: 씬 재시작 시 기존 핸들러 먼저 제거
+    ['playerShoot','playerMelee','monsterDied','levelUp','playerDied',
+     'playerSkill','skillFailed','defenseBreak','monsterEnraged'].forEach(ev => {
+      this.events.off(ev);
+    });
+
     // 투사체 발사
     // 원거리 발사
     this.events.on('playerShoot', ({ fromX, fromY, toX, toY, damage, isCrit, maxRange }) => {

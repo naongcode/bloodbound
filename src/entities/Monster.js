@@ -171,7 +171,10 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
     this.accumulateBreak(amount);
 
     if (this.hp <= 0) {
-      this.scene.events.emit('monsterDied', { monster: this });
+      // try-catch: 이벤트 핸들러에서 예외가 발생해도 die()는 반드시 실행
+      try { this.scene.events.emit('monsterDied', { monster: this }); } catch (e) {
+        console.warn('[Monster] monsterDied 이벤트 오류:', e);
+      }
       this.die();
     }
 
