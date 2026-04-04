@@ -1,0 +1,21 @@
+{
+  "name": "bloodbound-realm",
+  "version": "0.1.0",
+  "description": "Bloodbound Realm - Web ARPG",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "server": "node server.js",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
+    "phaser": "^3.90.0",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "vite": "^8.0.3"
+  }
+}
