@@ -9,10 +9,16 @@ class AuthManager {
 
   // ── 세션 확인 (앱 시작 시 호출) ───────────────────
   async getSession() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.warn('[Auth] getSession 오류:', error.message);
+      return null;
+    }
     if (session?.user) {
       this.user = session.user;
-      await this._loadProfile();
+      try { await this._loadProfile(); } catch (e) {
+        console.warn('[Auth] 프로필 로드 실패:', e.message);
+      }
     }
     return session;
   }

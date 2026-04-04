@@ -64,12 +64,22 @@ export default class AuthScene extends Phaser.Scene {
   }
 
   async _checkSession() {
-    const session = await AuthManager.getSession();
-    this._checking = false;
+    // 5초 타임아웃 — Supabase 프로젝트 일시정지/네트워크 오류 대비
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 5000)
+    );
 
-    if (session) {
-      this._onLoggedIn();
-    } else {
+    try {
+      const session = await Promise.race([AuthManager.getSession(), timeout]);
+      this._checking = false;
+      if (session) {
+        this._onLoggedIn();
+      } else {
+        this._showLoginUI();
+      }
+    } catch (err) {
+      console.warn('[AuthScene] 세션 확인 실패:', err.message);
+      this._checking = false;
       this._showLoginUI();
     }
   }
