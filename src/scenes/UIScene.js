@@ -106,18 +106,22 @@ export default class UIScene extends Phaser.Scene {
     enhBtn.on('pointerdown', () => this.toggleEnhance());
 
     // ── 조작법 힌트 ────────────────────────────────
-    this.add.rectangle(1280 - 10, 720 - 10, 280, 44, 0x000000, 0.55)
+    // 박스: 우하단 (1270, 710) 기준, 280×50 → top=660, center=685
+    this.add.rectangle(1280 - 10, 720 - 10, 280, 50, 0x000000, 0.55)
       .setOrigin(1, 1);
 
-    this.add.text(1280 - 18, 720 - 36,
+    // setOrigin(1, 0.5) → y가 텍스트 세로 중앙 기준
+    this.add.text(1280 - 18, 676,
       '[WASD] 이동  [클릭/SPACE] 발사  [Q] 스킬',
-      { fontSize: '12px', fill: '#dddddd', stroke: '#000000', strokeThickness: 2 }
-    ).setOrigin(1, 0);
+      { fontSize: '12px', fill: '#dddddd', stroke: '#000000', strokeThickness: 2,
+        padding: { top: 0, bottom: 0 } }
+    ).setOrigin(1, 0.5);
 
-    this.add.text(1280 - 18, 720 - 18,
+    this.add.text(1280 - 18, 694,
       '[SHIFT] 회피  [I] 인벤토리  [C] 캐릭터',
-      { fontSize: '12px', fill: '#dddddd', stroke: '#000000', strokeThickness: 2 }
-    ).setOrigin(1, 0);
+      { fontSize: '12px', fill: '#dddddd', stroke: '#000000', strokeThickness: 2,
+        padding: { top: 0, bottom: 0 } }
+    ).setOrigin(1, 0.5);
 
     this.refreshAll();
   }
@@ -206,7 +210,7 @@ export default class UIScene extends Phaser.Scene {
     const divider = this.add.rectangle(0, equipY + 130, pw, 1, 0x444466).setOrigin(0);
     this.invPanel.add(divider);
 
-    // ── 인벤토리 그리드 (30칸, 5×6) ─────────────────
+    // ── 인벤토리 그리드 (30칸, 8열) ─────────────────
     const gridX = 20, gridY = equipY + 140;
     const cellSize = 44, cols = 8;
     this.invSlotGfx = [];
@@ -221,8 +225,15 @@ export default class UIScene extends Phaser.Scene {
         .setOrigin(0).setStrokeStyle(1, 0x444466).setInteractive();
       this.invPanel.add(slotBg);
 
-      slotBg.on('pointerover', () => slotBg.setFillStyle(0x3a3a5a));
-      slotBg.on('pointerout',  () => slotBg.setFillStyle(0x2c2c4a));
+      slotBg.on('pointerover', () => {
+        slotBg.setFillStyle(0x3a3a5a);
+        const item = this.player?.inventory?.slots[i];
+        if (item) this._showItemTooltip(item, px + cx, py + cy);
+      });
+      slotBg.on('pointerout', () => {
+        slotBg.setFillStyle(0x2c2c4a);
+        this._hideItemTooltip();
+      });
       slotBg.on('pointerdown', () => this.onInventorySlotClick(i));
 
       this.invSlotGfx.push({ bg: slotBg, icon: null, qty: null, cx, cy });
@@ -473,12 +484,95 @@ export default class UIScene extends Phaser.Scene {
   }
 
   // ════════════════════════════════════════════════
+  // 아이템 툴팁
+  // ════════════════════════════════════════════════
+  _showItemTooltip(item, slotWorldX, slotWorldY) {
+    this._hideItemTooltip();
+
+    const GRADE_COLOR = {
+      common: '#aaaaaa', uncommon: '#2ecc71', rare: '#3498db',
+      epic: '#9b59b6', legendary: '#e67e22', abyss: '#c0392b',
+    };
+    const GRADE_LABEL = {
+      common: '일반', uncommon: '고급', rare: '희귀',
+      epic: '영웅', legendary: '전설', abyss: '심연',
+    };
+    const STAT_LABEL = {
+      STR: '힘', AGI: '민첩', INT: '지능', VIT: '체력', WIS: '지혜',
+      RES: '저항', defense: '방어', attackPower: '공격력',
+      critRate: '치명타율', critDamage: '치명타 피해',
+    };
+    const GRADE_BORDER = {
+      common: 0x888888, uncommon: 0x2ecc71, rare: 0x3498db,
+      epic: 0x9b59b6, legendary: 0xe67e22, abyss: 0xc0392b,
+    };
+
+    const nameColor  = GRADE_COLOR[item.grade]  ?? '#ffffff';
+    const gradeLabel = GRADE_LABEL[item.grade]  ?? '';
+    const border     = GRADE_BORDER[item.grade] ?? 0x666666;
+    const tw = 190;
+
+    // 텍스트 라인 구성
+    const lines = [];
+    lines.push({ text: item.name, size: '13px', fill: nameColor, bold: true });
+    if (gradeLabel) lines.push({ text: gradeLabel, size: '10px', fill: nameColor });
+    if (item.enhance > 0) lines.push({ text: `강화 +${item.enhance}`, size: '10px', fill: '#f1c40f' });
+    lines.push({ text: '', size: '4px', fill: '' }); // 구분선 여백
+    if (item.stats) {
+      Object.entries(item.stats).forEach(([k, v]) => {
+        const label = STAT_LABEL[k] ?? k;
+        lines.push({ text: `${label}  +${v}`, size: '11px', fill: '#cccccc' });
+      });
+    }
+    if (item.description) {
+      lines.push({ text: '', size: '4px', fill: '' });
+      lines.push({ text: item.description, size: '10px', fill: '#777799', wrap: tw - 16 });
+    }
+    const hint = item.type === 'equipment' ? '[클릭] 장착 / 해제' : '[클릭] 사용';
+    lines.push({ text: '', size: '4px', fill: '' });
+    lines.push({ text: hint, size: '10px', fill: '#555577' });
+
+    // 높이 계산
+    const lineH = lines.map(l => parseInt(l.size) + 3);
+    const th = lineH.reduce((a, b) => a + b, 0) + 14;
+
+    // 위치: 인벤토리 패널 왼쪽에 고정, y는 슬롯 기준
+    const tx = slotWorldX - tw - 8;
+    const ty = Math.max(4, Math.min(slotWorldY, 720 - th - 4));
+
+    this._ttObjs = [];
+
+    const bg = this.add.rectangle(tx, ty, tw, th, 0x08080f, 0.97)
+      .setOrigin(0).setStrokeStyle(1, border).setDepth(299);
+    this._ttObjs.push(bg);
+
+    let curY = ty + 8;
+    lines.forEach((line, i) => {
+      if (!line.text) { curY += lineH[i]; return; }
+      const style = {
+        fontSize: line.size, fill: line.fill,
+        fontStyle: line.bold ? 'bold' : 'normal',
+        padding: { top: 0, bottom: 0 },
+      };
+      if (line.wrap) style.wordWrap = { width: line.wrap };
+      const t = this.add.text(tx + 8, curY, line.text, style).setDepth(300);
+      this._ttObjs.push(t);
+      curY += lineH[i];
+    });
+  }
+
+  _hideItemTooltip() {
+    if (this._ttObjs) { this._ttObjs.forEach(o => o.destroy()); this._ttObjs = null; }
+  }
+
+  // ════════════════════════════════════════════════
   // 패널 토글
   // ════════════════════════════════════════════════
   toggleInventory() {
     this.inventoryOpen = !this.inventoryOpen;
     this.invPanel.setVisible(this.inventoryOpen);
     if (this.inventoryOpen) this.refreshInventory();
+    else this._hideItemTooltip();
   }
 
   toggleCharPanel() {
@@ -590,7 +684,7 @@ export default class UIScene extends Phaser.Scene {
   // 강화소 패널
   // ════════════════════════════════════════════════
   buildEnhancePanel() {
-    const pw = 360, ph = 430;
+    const pw = 420, ph = 430;
     const px = (1280 - pw) / 2 - 210, py = (720 - ph) / 2;
 
     this.enhPanel = this.add.container(px, py).setVisible(false);
@@ -604,8 +698,8 @@ export default class UIScene extends Phaser.Scene {
       fontSize: '17px', fill: '#9b59b6', fontStyle: 'bold',
     }).setOrigin(0.5, 0));
 
-    this.enhPanel.add(this.add.text(pw / 2, 36, '비용 100×2^강화등급 G  |  +4이상 실패 확률 있음', {
-      fontSize: '10px', fill: '#555555',
+    this.enhPanel.add(this.add.text(pw / 2, 36, '비용 100×2^강화등급 G  |  +4 이상 실패 확률 있음', {
+      fontSize: '10px', fill: '#8888aa',
     }).setOrigin(0.5, 0));
 
     this.enhPanel.add(this.add.rectangle(0, 54, pw, 1, 0x2a1a4a).setOrigin(0));
@@ -618,17 +712,18 @@ export default class UIScene extends Phaser.Scene {
       { key: 'necklace', label: '목걸이' },
     ];
 
+    // 레이아웃: 슬롯라벨(14) | 아이템명(60) | 강화비용·확률(pw-158) | 강화버튼(pw-44)
     SLOTS.forEach(({ key, label }, i) => {
       const ry = 60 + i * 38;
 
-      const rowBg = this.add.rectangle(6, ry, pw - 12, 34, 0x110d1a).setOrigin(0);
-      const slotLbl = this.add.text(14, ry + 17, label, { fontSize: '11px', fill: '#777777' }).setOrigin(0, 0.5);
-      const nameTxt = this.add.text(68, ry + 17, '—',  { fontSize: '11px', fill: '#444444' }).setOrigin(0, 0.5);
-      const costTxt = this.add.text(pw - 130, ry + 17, '', { fontSize: '11px', fill: '#f39c12' }).setOrigin(0, 0.5);
+      const rowBg   = this.add.rectangle(6, ry, pw - 12, 34, 0x110d1a).setOrigin(0);
+      const slotLbl = this.add.text(14, ry + 17, label, { fontSize: '11px', fill: '#999999' }).setOrigin(0, 0.5);
+      const nameTxt = this.add.text(60, ry + 17, '—', { fontSize: '11px', fill: '#444444' }).setOrigin(0, 0.5);
+      const costTxt = this.add.text(pw - 158, ry + 17, '', { fontSize: '11px', fill: '#f39c12' }).setOrigin(0, 0.5);
 
-      const btn    = this.add.rectangle(pw - 36, ry + 17, 56, 26, 0x150020)
+      const btn    = this.add.rectangle(pw - 40, ry + 17, 64, 26, 0x150020)
         .setStrokeStyle(1, 0x9b59b6).setOrigin(0.5).setInteractive({ useHandCursor: true });
-      const btnTxt = this.add.text(pw - 36, ry + 17, '강화', { fontSize: '11px', fill: '#cccccc', fontStyle: 'bold' }).setOrigin(0.5);
+      const btnTxt = this.add.text(pw - 40, ry + 17, '강화', { fontSize: '11px', fill: '#cccccc', fontStyle: 'bold' }).setOrigin(0.5);
 
       btn.on('pointerover', () => btn.setFillStyle(0x2a0040));
       btn.on('pointerout',  () => btn.setFillStyle(0x150020));
@@ -805,7 +900,7 @@ export default class UIScene extends Phaser.Scene {
     titleBtn.on('pointerover', () => titleBtn.setFillStyle(0x4a1a1a));
     titleBtn.on('pointerout',  () => titleBtn.setFillStyle(0x2e0d0d));
     titleBtn.on('pointerdown', () => {
-      SaveSystem.save(this.player);
+      SaveSystem.saveChar(this.gameScene._charId, this.player);
       this.scene.stop('UIScene');
       this.gameScene.scene.stop('GameScene');
       this.gameScene.scene.start('JobSelectScene');

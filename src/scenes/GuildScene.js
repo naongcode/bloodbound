@@ -8,10 +8,9 @@ export default class GuildScene extends Phaser.Scene {
   constructor() { super('GuildScene'); }
 
   init(data) {
-    this._jobKey   = data?.jobKey   ?? 'warrior';
-    this._loadSave = data?.loadSave ?? false;
-    // GameScene으로부터 플레이어 참조
-    this._playerRef = data?.player ?? null;
+    this._jobKey    = data?.jobKey  ?? 'warrior';
+    this._charId    = data?.charId  ?? null;
+    this._playerRef = data?.player  ?? null;
   }
 
   create() {
@@ -35,7 +34,7 @@ export default class GuildScene extends Phaser.Scene {
     backBtn.on('pointerdown', () => {
       this.cameras.main.fadeOut(200, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('GameScene', { jobKey: this._jobKey, loadSave: true });
+        this.scene.start('GameScene', { jobKey: this._jobKey, charId: this._charId, loadSave: true });
       });
     });
 

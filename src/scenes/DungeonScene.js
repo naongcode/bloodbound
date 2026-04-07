@@ -39,6 +39,7 @@ export default class DungeonScene extends Phaser.Scene {
 
   init(data) {
     this._jobKey  = (data && data.jobKey) ? data.jobKey : 'warrior';
+    this._charId  = (data && data.charId) ? data.charId : null;
     this._isMulti = (data && data.multi)  ? true : false;
   }
 
@@ -114,23 +115,29 @@ export default class DungeonScene extends Phaser.Scene {
     });
 
     // 혈안개 분위기 오버레이
-    const fog = this.add.rectangle(DW / 2, DH / 2, DW, DH, 0x440011, 0.12).setDepth(1).setScrollFactor(0);
+    this.add.rectangle(DW / 2, DH / 2, DW, DH, 0x440011, 0.12).setDepth(1).setScrollFactor(0);
   }
 
   spawnPlayer() {
-    const saveData = SaveSystem.load();
     this.player = new Player(this, DW / 2, DH / 2, this._jobKey);
     this.player.inventory = this.inventorySystem.createInventory();
 
-    if (saveData) {
-      SaveSystem.apply(this.player, saveData, this.inventorySystem);
+    if (this._charId) {
+      // 1) 로컬 캐시 즉시 적용 (동기)
+      const cached = SaveSystem.loadCharSync(this._charId);
+      if (cached) {
+        SaveSystem.apply(this.player, cached, this.inventorySystem);
+      }
+      // 2) 클라우드 최신 데이터로 덮어쓰기 (비동기)
+      SaveSystem.loadChar(this._charId).then(saveData => {
+        if (saveData) SaveSystem.apply(this.player, saveData, this.inventorySystem);
+      }).catch(e => console.warn('[DungeonScene] 세이브 로드 실패:', e));
     } else {
-      // 세이브 없으면 기본 장비
       this.inventorySystem.addItem(this.player.inventory, 'iron_sword');
       this.inventorySystem.addItem(this.player.inventory, 'leather_armor');
       this.inventorySystem.addItem(this.player.inventory, 'hp_potion_small', 3);
       this.inventorySystem.equip(this.player, 0);
-      this.inventorySystem.equip(this.player, 0);
+      this.inventorySystem.equip(this.player, 1);
     }
   }
 
@@ -173,7 +180,8 @@ export default class DungeonScene extends Phaser.Scene {
     } while (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 250 && tries < 30);
 
     const monster = new Monster(this, x, y, data);
-    monster.target = this.player;
+    monster.target   = this.player;
+    monster.isAggro  = true; // 던전: 스폰 즉시 플레이어 추적
     this.monsters.add(monster);
     return monster;
   }
@@ -276,7 +284,7 @@ export default class DungeonScene extends Phaser.Scene {
     this.showFloatText(DW / 2, DH / 2 - 80, msg, '#ffd700', '16px');
 
     this._chestX = null; // 상자 비활성화
-    SaveSystem.save(this.player);
+    SaveSystem.saveChar(this._charId, this.player);
   }
 
   spawnReturnPortal() {
@@ -330,7 +338,7 @@ export default class DungeonScene extends Phaser.Scene {
     // 레벨업
     this.events.on('levelUp', ({ player, level }) => {
       this.showLevelUpEffect(player, level);
-      SaveSystem.save(player);
+      SaveSystem.saveChar(this._charId, player);
     });
 
     // 플레이어 사망
@@ -360,14 +368,16 @@ export default class DungeonScene extends Phaser.Scene {
 
   // ── HUD (던전 전용) ────────────────────────────────────────
   buildHUD() {
-    const sf0 = { scrollFactor: 0 };
+
 
     // 반투명 상단 바
     this.add.rectangle(640, 20, 1280, 40, 0x000000, 0.55).setScrollFactor(0).setDepth(95);
 
+    const _np = { padding: { top: 0, bottom: 0 } }; // 글로벌 패딩 패치 비적용
+
     // 웨이브 텍스트
     this._waveText = this.add.text(640, 20, '', {
-      fontSize: '16px', fill: '#ffffff', fontStyle: 'bold'
+      fontSize: '16px', fill: '#ffffff', fontStyle: 'bold', ..._np
     }).setOrigin(0.5).setScrollFactor(0).setDepth(96);
 
     // HP/MP 바 배경
@@ -377,17 +387,17 @@ export default class DungeonScene extends Phaser.Scene {
     this._hpBar = this.add.rectangle(10, 48, 0, 14, 0xe74c3c).setScrollFactor(0).setDepth(96).setOrigin(0, 0);
     this._mpBar = this.add.rectangle(10, 65, 0, 10, 0x3498db).setScrollFactor(0).setDepth(96).setOrigin(0, 0);
 
-    this._hpText = this.add.text(130, 55, '', { fontSize: '10px', fill: '#fff' }).setOrigin(0.5).setScrollFactor(0).setDepth(97);
-    this._mpText = this.add.text(130, 72, '', { fontSize: '10px', fill: '#fff' }).setOrigin(0.5).setScrollFactor(0).setDepth(97);
+    this._hpText = this.add.text(130, 55, '', { fontSize: '10px', fill: '#fff', ..._np }).setOrigin(0.5).setScrollFactor(0).setDepth(97);
+    this._mpText = this.add.text(130, 72, '', { fontSize: '10px', fill: '#fff', ..._np }).setOrigin(0.5).setScrollFactor(0).setDepth(97);
 
     // 보스 HP 바 (숨김 시작)
     this._bossBarBg = this.add.rectangle(640, DH - 30, 600, 18, 0x330000).setScrollFactor(0).setDepth(95).setVisible(false);
     this._bossBar   = this.add.rectangle(340, DH - 30, 0,   16, 0xcc0033).setScrollFactor(0).setDepth(96).setOrigin(0, 0.5).setVisible(false);
-    this._bossText  = this.add.text(640, DH - 30, '', { fontSize: '11px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(97).setVisible(false);
+    this._bossText  = this.add.text(640, DH - 30, '', { fontSize: '11px', fill: '#fff', fontStyle: 'bold', ..._np }).setOrigin(0.5).setScrollFactor(0).setDepth(97).setVisible(false);
 
     // ESC 힌트
     this.add.text(1270, 20, '[ESC] 귀환', {
-      fontSize: '11px', fill: '#aaaaaa'
+      fontSize: '11px', fill: '#aaaaaa', ..._np
     }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(96);
 
     this.updateWaveHUD();
@@ -530,20 +540,67 @@ export default class DungeonScene extends Phaser.Scene {
     this.levelSystem.gainXP(this.player, { base: data.xpReward, sourceLevel: data.level });
 
     const gold = Phaser.Math.Between(data.goldReward.min, data.goldReward.max);
-    // 던전 보정: 골드 1.5배
     this.player.inventory.gold += Math.floor(gold * 1.5);
 
     if (data.dropTable) {
       data.dropTable.forEach(drop => {
         if (Math.random() < drop.chance * 1.2) {
           const qty = Phaser.Math.Between(drop.quantity[0], drop.quantity[1]);
-          this.inventorySystem.addItem(this.player.inventory, drop.itemKey, qty);
-          this.showFloatText(monster.x, monster.y - 20, `+ ${ITEM_DATA[drop.itemKey]?.name ?? drop.itemKey}`, '#2ecc71', '12px');
+          const added = this.inventorySystem.addItem(this.player.inventory, drop.itemKey, qty);
+          if (added) {
+            const itemName = ITEM_DATA[drop.itemKey]?.name ?? drop.itemKey;
+            this._showPickupNotice(itemName, ITEM_DATA[drop.itemKey]?.grade);
+          }
         }
       });
     }
 
     this.events.emit('statsChanged', this.player);
+  }
+
+  // ── 화면 고정 획득 알림 ─────────────────────────────────────
+  _showPickupNotice(itemName, grade) {
+    const GRADE_COLOR = {
+      common: '#aaaaaa', uncommon: '#2ecc71', rare: '#3498db',
+      epic: '#9b59b6', legendary: '#e67e22', abyss: '#c0392b',
+    };
+    const color = GRADE_COLOR[grade] ?? '#ffffff';
+
+    if (!this._pickupLog) this._pickupLog = [];
+
+    // 최대 5줄, 오래된 것 정리
+    if (this._pickupLog.length >= 5) {
+      const old = this._pickupLog.shift();
+      if (old.active) old.destroy();
+    }
+
+    const yBase = 55;
+    const lineH = 18;
+
+    // 기존 항목 위로 올리기
+    this._pickupLog.forEach((t, i) => {
+      if (t.active) t.setY(yBase + i * lineH);
+    });
+
+    const t = this.add.text(DW - 10, yBase + this._pickupLog.length * lineH,
+      `+ ${itemName}`,
+      { fontSize: '12px', fill: color, fontStyle: 'bold',
+        stroke: '#000000', strokeThickness: 2,
+        padding: { top: 0, bottom: 0 } }
+    ).setOrigin(1, 0).setScrollFactor(0).setDepth(97);
+
+    this._pickupLog.push(t);
+
+    // 3초 후 페이드 아웃
+    this.tweens.add({
+      targets: t, alpha: 0, duration: 600, delay: 2400,
+      onComplete: () => {
+        t.destroy();
+        this._pickupLog = this._pickupLog.filter(x => x !== t);
+        // 남은 항목 재정렬
+        this._pickupLog.forEach((x, i) => { if (x.active) x.setY(yBase + i * lineH); });
+      }
+    });
   }
 
   // ── 이펙트 ───────────────────────────────────────────────
@@ -611,15 +668,15 @@ export default class DungeonScene extends Phaser.Scene {
 
   // ── 던전 출입 ────────────────────────────────────────────
   exitDungeon(save = true) {
-    if (save) SaveSystem.save(this.player);
+    if (save) SaveSystem.saveChar(this._charId, this.player);
     if (this._isMulti) Network.leaveRoom();
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.stop('DungeonScene');
       if (this._isMulti) {
-        this.scene.start('LobbyScene', { jobKey: this._jobKey });
+        this.scene.start('LobbyScene', { jobKey: this._jobKey, charId: this._charId });
       } else {
-        this.scene.start('GameScene', { jobKey: this._jobKey, loadSave: true });
+        this.scene.start('GameScene', { jobKey: this._jobKey, charId: this._charId, loadSave: true });
       }
     });
   }

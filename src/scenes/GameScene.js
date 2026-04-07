@@ -18,6 +18,7 @@ export default class GameScene extends Phaser.Scene {
 
   init(data) {
     this._jobKey   = (data && data.jobKey)  ? data.jobKey  : 'warrior';
+    this._charId   = (data && data.charId)  ? data.charId  : null;
     this._loadSave = (data && data.loadSave) ? true : false;
     this._isMulti  = (data && data.multi)   ? true : false;
   }
@@ -37,13 +38,13 @@ export default class GameScene extends Phaser.Scene {
     this.player.inventory.gold = 500;
 
     // 세이브 로드 or 신규 시작 장비
-    if (this._loadSave) {
+    if (this._loadSave && this._charId) {
       // 1) localStorage 캐시를 즉시 적용 (프레임 끊김 없음)
-      const cached = SaveSystem.loadSync();
+      const cached = SaveSystem.loadCharSync(this._charId);
       if (cached) SaveSystem.apply(this.player, cached, this.inventorySystem);
 
-      // 2) 클라우드 최신 데이터로 덮어쓰기 (비동기, 차이 있을 때만)
-      SaveSystem.load().then(saveData => {
+      // 2) 클라우드 최신 데이터로 덮어쓰기 (비동기)
+      SaveSystem.loadChar(this._charId).then(saveData => {
         if (saveData) {
           SaveSystem.apply(this.player, saveData, this.inventorySystem);
           this.events.emit('statsChanged', this.player);
@@ -265,7 +266,7 @@ export default class GameScene extends Phaser.Scene {
     // 레벨업 알림 + 자동 저장
     this.events.on('levelUp', ({ player, level }) => {
       this.showLevelUpEffect(player, level);
-      SaveSystem.save(player);
+      SaveSystem.saveChar(this._charId, player);
     });
 
     // 플레이어 사망
@@ -579,7 +580,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.input.keyboard.once('keydown-R', () => {
       overlay.destroy(); text.destroy(); sub.destroy();
-      this.scene.restart({ jobKey: this._jobKey });
+      this.scene.restart({ jobKey: this._jobKey, charId: this._charId });
     });
   }
 
@@ -790,25 +791,30 @@ export default class GameScene extends Phaser.Scene {
   }
 
   enterGuildHall() {
-    SaveSystem.save(this.player);
+    SaveSystem.saveChar(this._charId, this.player);
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.stop('UIScene');
       this.scene.start('GuildScene', {
-        jobKey: this._jobKey,
+        jobKey:   this._jobKey,
+        charId:   this._charId,
         loadSave: true,
-        player: this.player,
+        player:   this.player,
       });
     });
   }
 
   enterDungeon() {
-    SaveSystem.save(this.player);
+    SaveSystem.saveChar(this._charId, this.player);
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.stop('UIScene');
-      const multi = this._isMulti;
-      this.scene.start('DungeonScene', { jobKey: this._jobKey, multi });
+      this.scene.start('DungeonScene', {
+        jobKey:   this._jobKey,
+        charId:   this._charId,
+        loadSave: true,
+        multi:    this._isMulti,
+      });
     });
   }
 
