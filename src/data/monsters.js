@@ -20,8 +20,12 @@ export const MONSTER_DATA = {
     canSplit: true,         // HP 50% 이하 시 분열
     patterns: ['jump_slam', 'drain_tentacle'],
     dropTable: [
-      { itemKey: 'blood_crystal', chance: 0.4, quantity: [1, 2] },
-      { itemKey: 'iron_ore',      chance: 0.2, quantity: [1, 1] },
+      { itemKey: 'blood_crystal', chance: 0.4,  quantity: [1, 2] },
+      { itemKey: 'iron_ore',      chance: 0.2,  quantity: [1, 1] },
+      { itemKey: 'cloth_boots',   chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'cloth_gloves',  chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'cloth_pants',   chance: 0.06, quantity: [1, 1] },
+      { itemKey: 'iron_necklace', chance: 0.05, quantity: [1, 1] },
     ]
   },
 
@@ -44,8 +48,11 @@ export const MONSTER_DATA = {
     canFlock: true,         // 군집 소환
     patterns: ['dive_attack', 'curse_bite', 'flock_summon'],
     dropTable: [
-      { itemKey: 'blood_crystal', chance: 0.3, quantity: [1, 1] },
-      { itemKey: 'leather',       chance: 0.5, quantity: [1, 2] },
+      { itemKey: 'blood_crystal', chance: 0.3,  quantity: [1, 1] },
+      { itemKey: 'leather',       chance: 0.5,  quantity: [1, 2] },
+      { itemKey: 'cloth_boots',   chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'hunters_bow',   chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'leather_cap',   chance: 0.06, quantity: [1, 1] },
     ]
   },
 
@@ -71,8 +78,14 @@ export const MONSTER_DATA = {
     },
     patterns: ['charge', 'bite_combo', 'pack_assault'],
     dropTable: [
-      { itemKey: 'blood_crystal', chance: 0.5, quantity: [2, 4] },
-      { itemKey: 'leather',       chance: 0.7, quantity: [2, 5] },
+      { itemKey: 'blood_crystal',  chance: 0.5,  quantity: [2, 4] },
+      { itemKey: 'leather',        chance: 0.7,  quantity: [2, 5] },
+      { itemKey: 'leather_boots',  chance: 0.12, quantity: [1, 1] },
+      { itemKey: 'leather_pants',  chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'leather_gloves', chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'leather_armor',  chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'iron_helmet',    chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'shadow_bow',     chance: 0.06, quantity: [1, 1] },
     ]
   },
 
@@ -94,8 +107,13 @@ export const MONSTER_DATA = {
     aggroRange: 280,
     patterns: ['poison_bite', 'web_snare'],
     dropTable: [
-      { itemKey: 'blood_crystal', chance: 0.4, quantity: [1, 3] },
-      { itemKey: 'leather',       chance: 0.6, quantity: [2, 4] },
+      { itemKey: 'blood_crystal',  chance: 0.4,  quantity: [1, 3] },
+      { itemKey: 'leather',        chance: 0.6,  quantity: [2, 4] },
+      { itemKey: 'leather_gloves', chance: 0.12, quantity: [1, 1] },
+      { itemKey: 'leather_boots',  chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'blood_pendant',  chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'iron_helmet',    chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'chainmail',      chance: 0.06, quantity: [1, 1] },
     ]
   },
 
@@ -121,8 +139,16 @@ export const MONSTER_DATA = {
     },
     patterns: ['ground_slam', 'blood_boulder'],
     dropTable: [
-      { itemKey: 'blood_crystal', chance: 0.7, quantity: [4, 8] },
-      { itemKey: 'abyss_stone',   chance: 0.4, quantity: [1, 3] },
+      { itemKey: 'blood_crystal',   chance: 0.7,  quantity: [4, 8] },
+      { itemKey: 'abyss_stone',     chance: 0.4,  quantity: [1, 3] },
+      { itemKey: 'iron_plate',      chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'guard_helm',      chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'iron_greaves',    chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'iron_gauntlets',  chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'swift_boots',     chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'crusader_sword',  chance: 0.06, quantity: [1, 1] },
+      { itemKey: 'crimson_staff',   chance: 0.06, quantity: [1, 1] },
+      { itemKey: 'crimson_bow',     chance: 0.06, quantity: [1, 1] },
     ]
   },
 
@@ -152,6 +178,14 @@ export const MONSTER_DATA = {
       { itemKey: 'blood_crystal',   chance: 0.65, quantity: [4, 7] },
       { itemKey: 'abyss_stone',     chance: 0.45, quantity: [1, 3] },
       { itemKey: 'bloodkin_emblem', chance: 0.35, quantity: [1, 2] },
+      { itemKey: 'bloodbound_armor',chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'blood_crown',     chance: 0.07, quantity: [1, 1] },
+      { itemKey: 'shadow_treads',   chance: 0.07, quantity: [1, 1] },
+      { itemKey: 'shadow_trousers', chance: 0.07, quantity: [1, 1] },
+      { itemKey: 'abyss_gloves',    chance: 0.06, quantity: [1, 1] },
+      { itemKey: 'bloodkin_blade',  chance: 0.05, quantity: [1, 1] },
+      { itemKey: 'void_bow',        chance: 0.04, quantity: [1, 1] },
+      { itemKey: 'abyss_wand',      chance: 0.04, quantity: [1, 1] },
     ]
   },
 
@@ -178,27 +212,95 @@ export const MONSTER_DATA = {
     },
     patterns: ['combo_slash', 'shield_bash', 'full_guard', 'self_buff'],
     dropTable: [
-      { itemKey: 'blood_crystal',   chance: 0.6, quantity: [3, 6] },
-      { itemKey: 'abyss_stone',     chance: 0.3, quantity: [1, 2] },
-      { itemKey: 'bloodkin_emblem', chance: 0.4, quantity: [1, 2] },
+      { itemKey: 'blood_crystal',   chance: 0.6,  quantity: [3, 6] },
+      { itemKey: 'abyss_stone',     chance: 0.3,  quantity: [1, 2] },
+      { itemKey: 'bloodkin_emblem', chance: 0.4,  quantity: [1, 2] },
+      { itemKey: 'crusader_sword',  chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'iron_plate',      chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'guard_helm',      chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'abyss_pendant',   chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'resistance_ring', chance: 0.07, quantity: [1, 1] },
+      { itemKey: 'blood_signet',    chance: 0.07, quantity: [1, 1] },
+      { itemKey: 'bloodkin_blade',  chance: 0.05, quantity: [1, 1] },
     ]
-  }
+  },
+
+  // 원거리 몬스터 1 — 혈령 궁수 (중간 레벨, 화살 발사)
+  blood_archer: {
+    key: 'blood_archer',
+    name: '혈령 궁수',
+    texture: 'monster_archer',
+    level: 18,
+    baseHp: 120,
+    baseDamage: 18,
+    defense: 3,
+    speed: 70,
+    xpReward: 60,
+    goldReward: { min: 15, max: 30 },
+    drainRate: 0.10,
+    drainType: 'normal',
+    attackRange: 260,     // 원거리 사정거리
+    attackCooldown: 1800,
+    aggroRange: 300,
+    isRanged: true,
+    projColor: 0x27ae60,  // 초록 화살
+    projSpeed: 220,
+    patterns: ['ranged_shot'],
+    dropTable: [
+      { itemKey: 'blood_crystal',  chance: 0.4, quantity: [1, 2] },
+      { itemKey: 'leather',        chance: 0.5, quantity: [1, 3] },
+      { itemKey: 'hunters_bow',    chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'leather_boots',  chance: 0.08, quantity: [1, 1] },
+    ]
+  },
+
+  // 원거리 몬스터 2 — 독액 마법사 (높은 레벨, 느린 마법 탄)
+  poison_mage: {
+    key: 'poison_mage',
+    name: '독액 마법사',
+    texture: 'monster_mage',
+    level: 32,
+    baseHp: 180,
+    baseDamage: 28,
+    defense: 5,
+    speed: 55,
+    xpReward: 120,
+    goldReward: { min: 35, max: 65 },
+    drainRate: 0.15,
+    drainType: 'poison',
+    attackRange: 300,
+    attackCooldown: 2400,
+    aggroRange: 320,
+    isRanged: true,
+    projColor: 0x8e00ff,  // 보라 마법탄
+    projSpeed: 150,       // 느리지만 강함
+    patterns: ['ranged_shot'],
+    dropTable: [
+      { itemKey: 'blood_crystal',   chance: 0.5, quantity: [2, 4] },
+      { itemKey: 'abyss_stone',     chance: 0.25, quantity: [1, 2] },
+      { itemKey: 'blood_staff',     chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'abyss_pendant',   chance: 0.07, quantity: [1, 1] },
+    ]
+  },
 };
 
 export const MONSTER_SPAWN_TABLES = {
   plains: [
-    { key: 'blood_slime',    weight: 50, minLevel: 1  },
-    { key: 'blood_bat',      weight: 30, minLevel: 5  },
-    { key: 'crimson_spider', weight: 20, minLevel: 15 },
+    { key: 'blood_slime',    weight: 45, minLevel: 1  },
+    { key: 'blood_bat',      weight: 25, minLevel: 5  },
+    { key: 'crimson_spider', weight: 15, minLevel: 15 },
+    { key: 'blood_archer',   weight: 15, minLevel: 13 },
   ],
   forest: [
-    { key: 'bloodfang_wolf', weight: 40, minLevel: 18 },
-    { key: 'blood_bat',      weight: 30, minLevel: 5  },
-    { key: 'blood_slime',    weight: 20, minLevel: 1  },
+    { key: 'bloodfang_wolf', weight: 35, minLevel: 18 },
+    { key: 'blood_bat',      weight: 25, minLevel: 5  },
+    { key: 'blood_slime',    weight: 15, minLevel: 1  },
     { key: 'crimson_spider', weight: 10, minLevel: 15 },
+    { key: 'blood_archer',   weight: 15, minLevel: 13 },
   ],
   outer: [
-    { key: 'blood_golem',   weight: 50, minLevel: 35 },
-    { key: 'shadow_knight', weight: 50, minLevel: 50 },
+    { key: 'blood_golem',   weight: 35, minLevel: 35 },
+    { key: 'shadow_knight', weight: 35, minLevel: 50 },
+    { key: 'poison_mage',   weight: 30, minLevel: 28 },
   ],
 };

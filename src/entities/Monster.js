@@ -98,16 +98,40 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    if (dist > this.attackRange) {
-      // 플레이어 추적
-      const angle = Phaser.Math.Angle.Between(this.x, this.y, this.target.x, this.target.y);
-      const speed = this.isEnraged ? this.speed * 1.3 : this.speed;
-      this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-      this.setFlipX(this.target.x < this.x);
+    if (this.monsterData.isRanged) {
+      this._updateRangedAI(dist);
     } else {
-      this.setVelocity(0, 0);
-      this.tryAttack(delta);
+      if (dist > this.attackRange) {
+        const angle = Phaser.Math.Angle.Between(this.x, this.y, this.target.x, this.target.y);
+        const speed = this.isEnraged ? this.speed * 1.3 : this.speed;
+        this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+        this.setFlipX(this.target.x < this.x);
+      } else {
+        this.setVelocity(0, 0);
+        this.tryAttack(delta);
+      }
     }
+  }
+
+  // ── 원거리 AI ─────────────────────────────────────────────
+  _updateRangedAI(dist) {
+    const speed      = this.isEnraged ? this.speed * 1.3 : this.speed;
+    const angle      = Phaser.Math.Angle.Between(this.x, this.y, this.target.x, this.target.y);
+    const preferDist = this.attackRange * 0.7;  // 이 거리 유지
+    const minDist    = this.attackRange * 0.35; // 이보다 가까우면 후퇴
+
+    if (dist > this.attackRange) {
+      // 너무 멀면 접근
+      this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+    } else if (dist < minDist) {
+      // 너무 가까우면 후퇴
+      this.setVelocity(-Math.cos(angle) * speed * 0.8, -Math.sin(angle) * speed * 0.8);
+    } else {
+      // 사정거리 내 → 정지 후 공격
+      this.setVelocity(0, 0);
+      this.tryAttack();
+    }
+    this.setFlipX(this.target.x < this.x);
   }
 
   // ── 공격 시도 ─────────────────────────────────────────────
@@ -125,6 +149,21 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
     if (!this.target || !this.target.isAlive) return;
 
     const baseDmg = this.isEnraged ? this.damage * 1.5 : this.damage;
+
+    // 원거리 몬스터: 투사체 이벤트 발사
+    if (this.monsterData.isRanged) {
+      this.scene.events.emit('monsterShoot', {
+        monster:  this,
+        x: this.x, y: this.y,
+        tx: this.target.x, ty: this.target.y,
+        damage:   baseDmg,
+        drainRate: this.drainRate,
+        projColor: this.monsterData.projColor ?? 0xff4444,
+        projSpeed: this.monsterData.projSpeed ?? 200,
+      });
+      return;
+    }
+
     this.target.takeDamage(baseDmg, this.drainRate, this);
 
     // 흡혈 이펙트

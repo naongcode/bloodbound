@@ -1,5 +1,5 @@
 import { ITEM_DATA, ITEM_SLOTS } from '../data/items.js';
-import { calcMaxHp, calcMaxMp } from '../data/jobs.js';
+import { calcMaxHp, calcMaxMp, calcMoveSpeed } from '../data/jobs.js';
 
 const INVENTORY_SIZE = 30;
 
@@ -164,5 +164,9 @@ export default class InventorySystem {
     player.maxMp = calcMaxMp(player.jobData, player.totalStats, player.level);
     player.hp    = Math.min(player.hp, player.maxHp);
     player.mp    = Math.min(player.mp, player.maxMp);
+
+    // 이동속도 재계산 (AGI + 장비 moveSpeed 보너스)
+    player.moveSpeed = calcMoveSpeed(player.totalStats.AGI || 10)
+                     + Math.floor(player.totalStats.moveSpeed || 0);
   }
 }

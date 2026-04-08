@@ -391,8 +391,14 @@ export default class GuildScene extends Phaser.Scene {
       const amt = parseInt(prompt('기부할 골드 금액:') ?? '0');
       if (!isNaN(amt) && amt > 0 && this._playerRef) {
         const res = guildSystem.donate(this._playerRef, amt);
-        if (res.ok) this._showTab('buff');
-        else alert(res.reason ?? '골드 부족');
+        if (res.ok) {
+          // UIScene HUD 골드 즉시 갱신
+          const gameScene = this.scene.get('GameScene');
+          if (gameScene) gameScene.events.emit('inventoryChanged', this._playerRef.inventory);
+          this._showTab('buff');
+        } else {
+          alert(res.reason ?? '골드 부족');
+        }
       }
     });
     this._content.add([donateBtn, donateTxt]);

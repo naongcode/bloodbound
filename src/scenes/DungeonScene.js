@@ -13,34 +13,42 @@ const DW = 1280;
 const DH = 960;
 const WALL = 32;
 
-// 웨이브 정의
-const WAVES = [
-  { label: '1웨이브', monsters: [
-    { key: 'blood_slime', count: 5 },
-    { key: 'blood_bat',   count: 3 },
-  ]},
-  { label: '2웨이브', monsters: [
-    { key: 'blood_slime',    count: 3 },
-    { key: 'blood_bat',      count: 3 },
-    { key: 'bloodfang_wolf', count: 2 },
-  ]},
-  { label: '3웨이브', monsters: [
-    { key: 'bloodfang_wolf', count: 3 },
-    { key: 'blood_kin',      count: 2 },
-  ]},
-  // 보스 웨이브
-  { label: '보스', boss: true, monsters: [
-    { key: 'blood_kin', count: 1, boss: true },
-  ]},
+// 난이도별 설정
+const DIFF_TABLE = {
+  1: { hpMult: 1.0, dmgMult: 1.0, speedMult: 1.1,  rewardMult: 1.0 },
+  2: { hpMult: 1.3, dmgMult: 1.2, speedMult: 1.25, rewardMult: 1.4 },
+  3: { hpMult: 1.7, dmgMult: 1.5, speedMult: 1.4,  rewardMult: 2.0 },
+  4: { hpMult: 2.2, dmgMult: 1.9, speedMult: 1.6,  rewardMult: 2.8 },
+  5: { hpMult: 3.0, dmgMult: 2.5, speedMult: 1.8,  rewardMult: 4.0 },
+};
+
+// 웨이브 풀 (난이도에 따라 앞에서부터 waveCount-1개 사용 + 보스 웨이브)
+const WAVE_POOL = [
+  { label: '1웨이브', monsters: [{ key: 'blood_slime', count: 5 }, { key: 'blood_bat', count: 3 }] },
+  { label: '2웨이브', monsters: [{ key: 'blood_slime', count: 3 }, { key: 'blood_bat', count: 3 }, { key: 'bloodfang_wolf', count: 2 }] },
+  { label: '3웨이브', monsters: [{ key: 'bloodfang_wolf', count: 3 }, { key: 'blood_archer', count: 3 }] },
+  { label: '4웨이브', monsters: [{ key: 'blood_kin', count: 2 }, { key: 'blood_archer', count: 3 }, { key: 'crimson_spider', count: 2 }] },
+  { label: '5웨이브', monsters: [{ key: 'blood_kin', count: 3 }, { key: 'poison_mage', count: 2 }] },
+  { label: '6웨이브', monsters: [{ key: 'shadow_knight', count: 1 }, { key: 'blood_kin', count: 3 }, { key: 'poison_mage', count: 2 }] },
+  { label: '7웨이브', monsters: [{ key: 'shadow_knight', count: 2 }, { key: 'blood_archer', count: 4 }, { key: 'poison_mage', count: 2 }] },
 ];
+
+const BOSS_BY_DIFF = {
+  1: { key: 'blood_kin',     label: '보스' },
+  2: { key: 'blood_kin',     label: '보스' },
+  3: { key: 'shadow_knight', label: '보스' },
+  4: { key: 'shadow_knight', label: '보스' },
+  5: { key: 'blood_golem',   label: '최종 보스' },
+};
 
 export default class DungeonScene extends Phaser.Scene {
   constructor() { super('DungeonScene'); }
 
   init(data) {
-    this._jobKey  = (data && data.jobKey) ? data.jobKey : 'warrior';
-    this._charId  = (data && data.charId) ? data.charId : null;
-    this._isMulti = (data && data.multi)  ? true : false;
+    this._jobKey     = (data && data.jobKey)     ? data.jobKey     : 'warrior';
+    this._charId     = (data && data.charId)     ? data.charId     : null;
+    this._isMulti    = (data && data.multi)      ? true            : false;
+    this._difficulty = (data && data.difficulty) ? data.difficulty : 1;
   }
 
   create() {
@@ -56,6 +64,17 @@ export default class DungeonScene extends Phaser.Scene {
     this._waveIdx  = 0;
     this._cleared  = false;
 
+    // 난이도에 따라 웨이브 목록 생성
+    const diff    = this._difficulty;
+    const diffCfg = DIFF_TABLE[diff] || DIFF_TABLE[1];
+    const waveCount = 3 + diff; // 난이도1→4웨이브 ~ 난이도5→8웨이브
+    const boss    = BOSS_BY_DIFF[diff] || BOSS_BY_DIFF[1];
+    this._waves   = [
+      ...WAVE_POOL.slice(0, waveCount - 1),
+      { label: boss.label, boss: true, monsters: [{ key: boss.key, count: 1, boss: true }] },
+    ];
+    this._diffCfg = diffCfg;
+
     this.physics.world.setBounds(WALL, WALL, DW - WALL * 2, DH - WALL * 2);
     this.physics.add.collider(this.player, this.walls);
     this.physics.add.collider(this.monsters.getChildren(), this.walls);
@@ -66,6 +85,9 @@ export default class DungeonScene extends Phaser.Scene {
 
     this.setupEvents();
     this.buildHUD();
+
+    // UIScene 실행 (스킬 쿨타임 HUD, 인벤토리 등)
+    this.scene.launch('UIScene', { gameScene: this });
 
     // ESC → 귀환
     this.input.keyboard.on('keydown-ESC', () => this.exitDungeon());
@@ -143,9 +165,9 @@ export default class DungeonScene extends Phaser.Scene {
 
   // ── 웨이브 시스템 ─────────────────────────────────────────
   startWave(idx) {
-    if (idx >= WAVES.length) return;
+    if (idx >= this._waves.length) return;
     this._waveIdx = idx;
-    const wave = WAVES[idx];
+    const wave = this._waves[idx];
 
     this.showWaveBanner(wave.label, wave.boss);
     this.updateWaveHUD();
@@ -155,14 +177,12 @@ export default class DungeonScene extends Phaser.Scene {
     this.monsters.clear(true, true);
 
     wave.monsters.forEach(entry => {
-      const count = entry.count;
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; i < entry.count; i++) {
         const m = this.spawnMonster(entry.key);
         if (m && entry.boss) this.makeBoss(m);
       }
     });
 
-    // 모든 몬스터에 충돌 재적용
     this.physics.add.collider(this.monsters.getChildren(), this.walls);
   }
 
@@ -179,9 +199,18 @@ export default class DungeonScene extends Phaser.Scene {
       tries++;
     } while (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 250 && tries < 30);
 
-    const monster = new Monster(this, x, y, data);
+    // 난이도 배율 적용
+    const cfg = this._diffCfg || DIFF_TABLE[1];
+    const scaledData = {
+      ...data,
+      baseHp:     Math.floor(data.baseHp     * cfg.hpMult),
+      baseDamage: Math.floor(data.baseDamage * cfg.dmgMult),
+      speed:      Math.floor(data.speed      * (cfg.speedMult || 1.0)),
+    };
+
+    const monster = new Monster(this, x, y, scaledData);
     monster.target   = this.player;
-    monster.isAggro  = true; // 던전: 스폰 즉시 플레이어 추적
+    monster.isAggro  = true;
     this.monsters.add(monster);
     return monster;
   }
@@ -191,6 +220,7 @@ export default class DungeonScene extends Phaser.Scene {
     monster.maxHp  = Math.floor(monster.maxHp * 8);
     monster.hp     = monster.maxHp;
     monster.damage = Math.floor(monster.damage * 2);
+    monster.speed  = Math.floor(monster.speed * 1.6);
     monster.setScale(1.8).setTint(0xcc0033);
     monster.nameText.setText('★★ 심연의 군주 ★★');
     monster.nameText.setStyle({
@@ -208,7 +238,7 @@ export default class DungeonScene extends Phaser.Scene {
     if (alive > 0) return;
 
     const nextIdx = this._waveIdx + 1;
-    if (nextIdx < WAVES.length) {
+    if (nextIdx < this._waves.length) {
       this.showFloatText(DW / 2, DH / 2 - 40, '웨이브 클리어!', '#2ecc71', '22px');
       // 멀티: 호스트가 웨이브 진행 브로드캐스트
       if (this._isMulti && Network.isHost()) {
@@ -260,15 +290,22 @@ export default class DungeonScene extends Phaser.Scene {
     if (this._chestOpened) return;
     this._chestOpened = true;
 
-    // 보상 목록: 골드 + 랜덤 아이템
-    const gold = Phaser.Math.Between(200, 500);
+    // 보상 목록: 골드 + 랜덤 아이템 (난이도 배율 적용)
+    const cfg        = this._diffCfg || DIFF_TABLE[1];
+    const baseGold   = Phaser.Math.Between(200, 500);
+    const gold       = Math.floor(baseGold * cfg.rewardMult);
     this.player.inventory.gold += gold;
 
-    const possibleItems = [
-      'hp_potion_medium', 'soldiers_sword', 'resistance_ring', 'blood_crystal'
-    ];
-    // 2~3개 랜덤 아이템
-    const count = Phaser.Math.Between(2, 3);
+    // 난이도별 보상 풀
+    const itemPools = {
+      1: ['hp_potion_medium', 'soldiers_sword', 'leather_boots', 'blood_crystal'],
+      2: ['hp_potion_medium', 'soldiers_sword', 'iron_plate', 'swift_boots', 'chainmail'],
+      3: ['crusader_sword', 'guard_helm', 'iron_plate', 'iron_gauntlets', 'abyss_pendant'],
+      4: ['bloodkin_blade', 'bloodbound_armor', 'blood_crown', 'shadow_treads', 'abyss_ring'],
+      5: ['demon_blade', 'void_bow', 'void_staff', 'abyss_plate', 'abyss_crown'],
+    };
+    const possibleItems = itemPools[this._difficulty] || itemPools[1];
+    const count = Phaser.Math.Between(2, Math.min(3 + Math.floor(this._difficulty / 2), 5));
     const given = [];
     for (let i = 0; i < count; i++) {
       const key = possibleItems[Phaser.Math.Between(0, possibleItems.length - 1)];
@@ -404,9 +441,11 @@ export default class DungeonScene extends Phaser.Scene {
   }
 
   updateWaveHUD() {
-    const wave = WAVES[this._waveIdx];
+    const wave = this._waves?.[this._waveIdx];
     if (!wave) return;
-    this._waveText.setText(`[ 던전 — ${wave.label} / 총 ${WAVES.length}웨이브 ]`);
+    const diffNames = { 1: '일반', 2: '고급', 3: '잔혹', 4: '악몽', 5: '심연' };
+    const diffName  = diffNames[this._difficulty] ?? '일반';
+    this._waveText.setText(`[ 던전 [${diffName}] — ${wave.label} / 총 ${this._waves.length}웨이브 ]`);
   }
 
   updateHUD() {
@@ -672,6 +711,7 @@ export default class DungeonScene extends Phaser.Scene {
     if (this._isMulti) Network.leaveRoom();
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.stop('UIScene');
       this.scene.stop('DungeonScene');
       if (this._isMulti) {
         this.scene.start('LobbyScene', { jobKey: this._jobKey, charId: this._charId });

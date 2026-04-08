@@ -1,4 +1,4 @@
-import { JOB_DATA, BASE_STATS, calcMaxHp, calcMaxMp, getRequiredXP } from '../data/jobs.js';
+import { JOB_DATA, BASE_STATS, calcMaxHp, calcMaxMp, calcMoveSpeed, getRequiredXP } from '../data/jobs.js';
 import { SKILL_DATA } from '../data/skills.js';
 
 export default class Player extends Phaser.Physics.Arcade.Sprite {
@@ -19,10 +19,10 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.xp      = 0;
     this.skillPoints = 0;
 
-    // 기본 스탯 (레벨 1)
-    this.baseStats = { ...BASE_STATS };
-    this.stats     = { ...BASE_STATS };
-    this.totalStats = { ...BASE_STATS };
+    // 기본 스탯 (레벨 1) — AGI는 직업별 startAGI로 덮어씀
+    this.baseStats  = { ...BASE_STATS, AGI: jobData.startAGI };
+    this.stats      = { ...BASE_STATS, AGI: jobData.startAGI };
+    this.totalStats = { ...BASE_STATS, AGI: jobData.startAGI };
 
     // HP/MP
     this.maxHp = calcMaxHp(jobData, this.stats, this.level);
@@ -64,7 +64,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.attackDamageMultiplier = 1.0;
 
     // ── 이동 ─────────────────────────────────────────────────
-    this.moveSpeed = 180;
+    this.moveSpeed = calcMoveSpeed(jobData.startAGI);
     this.body.setSize(20, 24);
     this.body.setOffset(6, 4);
 

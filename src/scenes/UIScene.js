@@ -538,7 +538,7 @@ export default class UIScene extends Phaser.Scene {
     const STAT_LABEL = {
       STR: '힘', AGI: '민첩', INT: '지능', VIT: '체력', WIS: '지혜',
       RES: '저항', defense: '방어', attackPower: '공격력',
-      critRate: '치명타율', critDamage: '치명타 피해',
+      critRate: '치명타율', critDamage: '치명타 피해', moveSpeed: '이동속도',
     };
 
     const nameColor  = gradeColor(item.grade);
@@ -616,13 +616,15 @@ export default class UIScene extends Phaser.Scene {
   }
 
   // ════════════════════════════════════════════════
-  // 상점 패널
+  // 상점 패널 (구매 / 판매 탭)
   // ════════════════════════════════════════════════
   buildShopPanel() {
-    const pw = 390, ph = 480;
+    const pw = 400, ph = 520;
     const px = (1280 - pw) / 2, py = (720 - ph) / 2;
 
     this.shopPanel = this.add.container(px, py).setVisible(false);
+    this._shopTab = 'buy';
+    this._shopSellOffset = 0;
 
     const bg = this.add.rectangle(0, 0, pw, ph, 0x120f05, 0.97)
       .setOrigin(0).setStrokeStyle(2, 0xf39c12);
@@ -636,17 +638,38 @@ export default class UIScene extends Phaser.Scene {
     );
 
     // 골드 표시
-    this.shopGoldText = this.add.text(pw - 12, 12, '', {
+    this.shopGoldText = this.add.text(14, 12, '', {
       fontSize: '13px', fill: '#f39c12',
-    }).setOrigin(1, 0);
+    }).setOrigin(0, 0);
     this.shopPanel.add(this.shopGoldText);
 
-    // 구분선
-    this.shopPanel.add(
-      this.add.rectangle(0, 40, pw, 1, 0x4a3a00).setOrigin(0)
-    );
+    // 닫기
+    const closeBtn = this.add.text(pw - 10, 6, '✕', {
+      fontSize: '18px', fill: '#e74c3c',
+    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => this.toggleShop());
+    this.shopPanel.add(closeBtn);
 
-    // 판매 목록
+    // 구분선
+    this.shopPanel.add(this.add.rectangle(0, 38, pw, 1, 0x4a3a00).setOrigin(0));
+
+    // 탭 버튼
+    this._shopBuyTabBg  = this.add.rectangle(pw * 0.25, 44, pw * 0.46, 28, 0x3a2000).setOrigin(0.5, 0).setStrokeStyle(1, 0xf39c12).setInteractive({ useHandCursor: true });
+    this._shopBuyTabTxt = this.add.text(pw * 0.25, 58, '구매', { fontSize: '13px', fill: '#f39c12', fontStyle: 'bold' }).setOrigin(0.5);
+    this._shopSellTabBg  = this.add.rectangle(pw * 0.75, 44, pw * 0.46, 28, 0x1a0e00).setOrigin(0.5, 0).setStrokeStyle(1, 0x5a4000).setInteractive({ useHandCursor: true });
+    this._shopSellTabTxt = this.add.text(pw * 0.75, 58, '판매', { fontSize: '13px', fill: '#888888' }).setOrigin(0.5);
+
+    this._shopBuyTabBg.on('pointerdown',  () => this._switchShopTab('buy'));
+    this._shopSellTabBg.on('pointerdown', () => this._switchShopTab('sell'));
+    this.shopPanel.add([this._shopBuyTabBg, this._shopBuyTabTxt, this._shopSellTabBg, this._shopSellTabTxt]);
+
+    // 탭 아래 구분선
+    this.shopPanel.add(this.add.rectangle(0, 76, pw, 1, 0x4a3a00).setOrigin(0));
+
+    // 구매 컨텐츠 컨테이너 (정적)
+    this.shopBuyContainer = this.add.container(0, 0);
+    this.shopPanel.add(this.shopBuyContainer);
+
     const SHOP_ITEMS = [
       { key: 'hp_potion_small',  price: 50  },
       { key: 'hp_potion_medium', price: 200 },
@@ -659,54 +682,124 @@ export default class UIScene extends Phaser.Scene {
     SHOP_ITEMS.forEach((si, i) => {
       const data = ITEM_DATA[si.key];
       if (!data) return;
-      const ry = 48 + i * 68;
+      const ry = 84 + i * 68;
 
-      // 행 배경
-      const rowBg = this.add.rectangle(8, ry, pw - 16, 60, 0x1e1800).setOrigin(0);
-      rowBg.setStrokeStyle(1, 0x3a2800);
-      this.shopPanel.add(rowBg);
-
-      // 아이콘
-      const icon = this.add.image(38, ry + 30, data.texture)
-        .setDisplaySize(36, 36).setOrigin(0.5);
-      this.shopPanel.add(icon);
-
-      // 이름 (등급 색상)
-      const nameColor = gradeColor(data.grade);
-      this.shopPanel.add(this.add.text(64, ry + 10, data.name, {
-        fontSize: '13px', fill: nameColor, fontStyle: 'bold',
-      }));
-
-      // 설명
-      this.shopPanel.add(this.add.text(64, ry + 30, data.description?.slice(0, 26) ?? '', {
-        fontSize: '10px', fill: '#888888',
-      }));
-
-      // 가격
-      this.shopPanel.add(this.add.text(pw - 110, ry + 22, `${si.price} G`, {
-        fontSize: '14px', fill: '#f39c12', fontStyle: 'bold',
-      }).setOrigin(0, 0.5));
-
-      // 구매 버튼
-      const btn = this.add.rectangle(pw - 42, ry + 30, 60, 30, 0x1a0e00)
-        .setStrokeStyle(2, 0xf39c12).setOrigin(0.5).setInteractive({ useHandCursor: true });
-      const btnTxt = this.add.text(pw - 42, ry + 30, '구매', {
-        fontSize: '12px', fill: '#ffffff', fontStyle: 'bold',
-      }).setOrigin(0.5);
+      const rowBg = this.add.rectangle(8, ry, pw - 16, 60, 0x1e1800).setOrigin(0).setStrokeStyle(1, 0x3a2800);
+      const icon  = this.add.image(38, ry + 30, data.texture).setDisplaySize(36, 36).setOrigin(0.5);
+      const nameT = this.add.text(64, ry + 10, data.name, { fontSize: '13px', fill: gradeColor(data.grade), fontStyle: 'bold' });
+      const descT = this.add.text(64, ry + 30, data.description?.slice(0, 26) ?? '', { fontSize: '10px', fill: '#888888' });
+      const priceT = this.add.text(pw - 110, ry + 22, `${si.price} G`, { fontSize: '14px', fill: '#f39c12', fontStyle: 'bold' }).setOrigin(0, 0.5);
+      const btn    = this.add.rectangle(pw - 42, ry + 30, 60, 30, 0x1a0e00).setStrokeStyle(2, 0xf39c12).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      const btnTxt = this.add.text(pw - 42, ry + 30, '구매', { fontSize: '12px', fill: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
 
       btn.on('pointerover', () => btn.setFillStyle(0x3a2000));
       btn.on('pointerout',  () => btn.setFillStyle(0x1a0e00));
       btn.on('pointerdown', () => this.buyItem(si.key, si.price));
-
-      this.shopPanel.add([btn, btnTxt]);
+      this.shopBuyContainer.add([rowBg, icon, nameT, descT, priceT, btn, btnTxt]);
     });
 
-    // 닫기
-    const closeBtn = this.add.text(pw - 10, 6, '✕', {
-      fontSize: '18px', fill: '#e74c3c',
-    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
-    closeBtn.on('pointerdown', () => this.toggleShop());
-    this.shopPanel.add(closeBtn);
+    // 판매 컨텐츠 컨테이너 (동적 — 탭 열릴 때마다 재빌드)
+    this.shopSellContainer = this.add.container(0, 0).setVisible(false);
+    this.shopPanel.add(this.shopSellContainer);
+  }
+
+  _switchShopTab(tab) {
+    this._shopTab = tab;
+    this._shopSellOffset = 0;
+    const isBuy = tab === 'buy';
+    this.shopBuyContainer.setVisible(isBuy);
+    this.shopSellContainer.setVisible(!isBuy);
+    // 탭 버튼 활성/비활성 스타일
+    this._shopBuyTabBg.setFillStyle(isBuy ? 0x3a2000 : 0x1a0e00).setStrokeStyle(1, isBuy ? 0xf39c12 : 0x5a4000);
+    this._shopBuyTabTxt.setStyle({ fill: isBuy ? '#f39c12' : '#888888', fontStyle: isBuy ? 'bold' : 'normal' });
+    this._shopSellTabBg.setFillStyle(!isBuy ? 0x3a2000 : 0x1a0e00).setStrokeStyle(1, !isBuy ? 0xf39c12 : 0x5a4000);
+    this._shopSellTabTxt.setStyle({ fill: !isBuy ? '#f39c12' : '#888888', fontStyle: !isBuy ? 'bold' : 'normal' });
+    if (!isBuy) this._buildSellContent();
+  }
+
+  _buildSellContent() {
+    const pw = 400;
+    this.shopSellContainer.removeAll(true);
+
+    const p = this.player;
+    if (!p) return;
+
+    // 인벤토리에서 팔 수 있는 아이템 수집
+    const sellItems = [];
+    p.inventory.slots.forEach((item, idx) => {
+      if (item) sellItems.push({ item, idx });
+    });
+
+    if (sellItems.length === 0) {
+      this.shopSellContainer.add(
+        this.add.text(pw / 2, 200, '판매할 아이템이 없습니다.', {
+          fontSize: '13px', fill: '#666666',
+        }).setOrigin(0.5)
+      );
+      return;
+    }
+
+    const pageSize = 5;
+    const offset   = this._shopSellOffset;
+    const page     = sellItems.slice(offset, offset + pageSize);
+
+    page.forEach(({ item, idx }, i) => {
+      const ry    = 84 + i * 68;
+      const price = this._getSellPrice(item);
+      const qty   = item.stackable && item.quantity > 1 ? ` ×${item.quantity}` : '';
+
+      const rowBg  = this.add.rectangle(8, ry, pw - 16, 60, 0x150a0a).setOrigin(0).setStrokeStyle(1, 0x3a1400);
+      const icon   = this.add.image(38, ry + 30, item.texture).setDisplaySize(34, 34).setOrigin(0.5);
+      const nameT  = this.add.text(64, ry + 8, item.name + qty, { fontSize: '12px', fill: gradeColor(item.grade ?? 'common'), fontStyle: 'bold' });
+      const descT  = this.add.text(64, ry + 28, item.description?.slice(0, 28) ?? '', { fontSize: '10px', fill: '#666666' });
+      const priceT = this.add.text(pw - 115, ry + 30, `${price.toLocaleString()} G`, { fontSize: '13px', fill: '#f39c12', fontStyle: 'bold' }).setOrigin(0, 0.5);
+      const btn    = this.add.rectangle(pw - 42, ry + 30, 60, 30, 0x1a0000).setStrokeStyle(2, 0xe74c3c).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      const btnTxt = this.add.text(pw - 42, ry + 30, '판매', { fontSize: '12px', fill: '#e74c3c', fontStyle: 'bold' }).setOrigin(0.5);
+
+      btn.on('pointerover', () => btn.setFillStyle(0x3a0000));
+      btn.on('pointerout',  () => btn.setFillStyle(0x1a0000));
+      btn.on('pointerdown', () => this._sellItem(idx, price));
+      this.shopSellContainer.add([rowBg, icon, nameT, descT, priceT, btn, btnTxt]);
+    });
+
+    // 페이지 이동 버튼
+    if (offset > 0) {
+      const up = this.add.text(pw / 2, 80, '▲ 이전', { fontSize: '12px', fill: '#f39c12' }).setOrigin(0.5, 1).setInteractive({ useHandCursor: true });
+      up.on('pointerdown', () => { this._shopSellOffset -= pageSize; this._buildSellContent(); });
+      this.shopSellContainer.add(up);
+    }
+    if (offset + pageSize < sellItems.length) {
+      const down = this.add.text(pw / 2, 84 + pageSize * 68 + 4, `▼ 다음 (${sellItems.length - offset - pageSize}개 더)`, { fontSize: '12px', fill: '#f39c12' }).setOrigin(0.5, 0).setInteractive({ useHandCursor: true });
+      down.on('pointerdown', () => { this._shopSellOffset += pageSize; this._buildSellContent(); });
+      this.shopSellContainer.add(down);
+    }
+  }
+
+  _getSellPrice(item) {
+    if (!item) return 0;
+    if (item.type === 'consumable') {
+      const base = { hp_potion_small: 25, hp_potion_medium: 100 };
+      return base[item.key] ?? 20;
+    }
+    if (item.type === 'material') {
+      const unitPrice = { iron_ore: 15, leather: 12, blood_crystal: 30, abyss_stone: 80, bloodkin_emblem: 60 }[item.key] ?? 10;
+      return unitPrice * (item.quantity ?? 1);
+    }
+    if (item.type === 'equipment') {
+      const gradeVal = { common: 1, uncommon: 3, rare: 10, epic: 30, legendary: 80, abyss: 150 };
+      return Math.floor((item.requiredLevel ?? 1) * 8 * (gradeVal[item.grade] ?? 1));
+    }
+    return 10;
+  }
+
+  _sellItem(slotIndex, price) {
+    const p = this.player;
+    p.inventory.slots[slotIndex] = null;
+    p.inventory.gold += price;
+    this.gameScene.events.emit('inventoryChanged', p.inventory);
+    this.refreshShop();
+    this.refreshAll();
+    this._buildSellContent();
   }
 
   // ════════════════════════════════════════════════
@@ -833,7 +926,10 @@ export default class UIScene extends Phaser.Scene {
   toggleShop() {
     this.shopOpen = !this.shopOpen;
     this.shopPanel.setVisible(this.shopOpen);
-    if (this.shopOpen) this.refreshShop();
+    if (this.shopOpen) {
+      this._switchShopTab('buy');
+      this.refreshShop();
+    }
   }
 
   refreshShop() {

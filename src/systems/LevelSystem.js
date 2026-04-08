@@ -1,4 +1,4 @@
-import { getRequiredXP, calcMaxHp, calcMaxMp, BASE_STATS } from '../data/jobs.js';
+import { getRequiredXP, calcMaxHp, calcMaxMp, calcMoveSpeed, BASE_STATS } from '../data/jobs.js';
 
 export default class LevelSystem {
   constructor(scene) {
@@ -41,6 +41,9 @@ export default class LevelSystem {
     player.maxMp = calcMaxMp(player.jobData, player.stats, player.level);
     player.hp = player.maxHp;
     player.mp = player.maxMp;
+
+    // 이동속도 재계산
+    player.moveSpeed = calcMoveSpeed(player.stats.AGI || 10);
 
     this.scene.events.emit('levelUp', { player, level: player.level });
   }

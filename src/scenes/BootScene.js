@@ -115,6 +115,24 @@ export default class BootScene extends Phaser.Scene {
       g.fillStyle(0x0d001a); g.fillRect(2, 12, 5, 14);   // 방패
       g.fillStyle(0x6600aa); g.fillRect(27, 10, 3, 18);  // 검
     }},
+    // 혈령 궁수 — 초록빛 로브 + 활
+    { key: 'monster_archer', draw(g) {
+      g.fillStyle(0x1d6b38); g.fillRect(8, 10, 16, 18);  // 로브
+      g.fillStyle(0x27ae60); g.fillRect(8, 10, 16, 5);   // 어깨
+      g.fillStyle(0xf5cba7); g.fillCircle(16, 7, 6);     // 얼굴
+      g.fillStyle(0x1a5c30); g.fillRect(5, 12, 3, 14);   // 활대
+      g.lineStyle(1, 0xd4b896); g.lineBetween(5, 13, 5, 25); // 시위
+      g.fillStyle(0xe74c3c); g.fillCircle(13, 6, 1.5); g.fillCircle(19, 6, 1.5); // 눈
+    }},
+    // 독액 마법사 — 어두운 보라 로브 + 지팡이
+    { key: 'monster_mage', draw(g) {
+      g.fillStyle(0x4a1580); g.fillRect(7, 10, 18, 18);  // 로브
+      g.fillStyle(0x6c3483); g.fillRect(7, 10, 18, 6);   // 어깨망토
+      g.fillStyle(0xd5d8dc); g.fillCircle(16, 7, 6);     // 얼굴
+      g.fillStyle(0x5b2c6f); g.fillRect(3, 8, 3, 20);    // 지팡이
+      g.fillStyle(0x00e5ff); g.fillCircle(4, 7, 4);      // 마법 구슬
+      g.fillStyle(0xff4c00); g.fillCircle(14, 6, 2); g.fillCircle(18, 6, 2); // 눈
+    }},
     ].forEach(({ key, draw }) => {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
       draw(g);
@@ -123,39 +141,209 @@ export default class BootScene extends Phaser.Scene {
     });
 
     // 타일 텍스처
-    const tiles = [
-      { key: 'tile_grass',  color: 0x27ae60 },
-      { key: 'tile_dirt',   color: 0x8B6914 },
-      { key: 'tile_wall',   color: 0x2c3e50 },
-      { key: 'tile_stone',  color: 0x555555 },
-    ];
-
-    tiles.forEach(({ key, color }) => {
+    // tile_grass — 부드러운 초록 + 은은한 점박이
+    {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
-      g.fillStyle(color);
-      g.fillRect(0, 0, 32, 32);
-      g.lineStyle(1, 0x000000, 0.2);
-      g.strokeRect(0, 0, 32, 32);
-      g.generateTexture(key, 32, 32);
-      g.destroy();
+      g.fillStyle(0x2ecc71); g.fillRect(0, 0, 32, 32);
+      g.fillStyle(0x27ae60, 0.4);
+      g.fillCircle(6,  7,  4); g.fillCircle(22, 5,  3);
+      g.fillCircle(14, 18, 3.5); g.fillCircle(4,  25, 3);
+      g.fillCircle(26, 22, 4); g.fillCircle(18, 29, 2.5);
+      g.fillStyle(0x58d68d, 0.3);
+      g.fillCircle(10, 12, 2.5); g.fillCircle(28, 14, 2);
+      g.fillCircle(8,  28, 2);  g.fillCircle(24, 30, 2);
+      g.lineStyle(1, 0x000000, 0.12); g.strokeRect(0, 0, 32, 32);
+      g.generateTexture('tile_grass', 32, 32); g.destroy();
+    }
+
+    // tile_dirt — 황토색 + 흙 점박이
+    {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0x8B6914); g.fillRect(0, 0, 32, 32);
+      g.fillStyle(0xa07820, 0.6);
+      g.fillCircle(8,  8,  3); g.fillCircle(24, 6,  2.5);
+      g.fillCircle(5,  22, 2); g.fillCircle(20, 26, 3);
+      g.fillCircle(15, 15, 2.5); g.fillCircle(28, 18, 2);
+      g.fillStyle(0x6b4f0f, 0.5);
+      g.fillCircle(12, 4,  1.5); g.fillCircle(28, 28, 2);
+      g.fillCircle(3,  30, 1.5); g.fillCircle(26, 14, 1.5);
+      g.lineStyle(1, 0x000000, 0.15); g.strokeRect(0, 0, 32, 32);
+      g.generateTexture('tile_dirt', 32, 32); g.destroy();
+    }
+
+    // tile_wall — 진한 네이비 + 벽돌 패턴
+    {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0x2c3e50); g.fillRect(0, 0, 32, 32);
+      g.lineStyle(1, 0x1a252f, 0.9);
+      // 가로 줄
+      g.lineBetween(0, 8,  32, 8);
+      g.lineBetween(0, 16, 32, 16);
+      g.lineBetween(0, 24, 32, 24);
+      // 세로 줄 (홀짝 엇갈림)
+      g.lineBetween(16, 0,  16, 8);
+      g.lineBetween(8,  8,  8,  16);
+      g.lineBetween(24, 8,  24, 16);
+      g.lineBetween(16, 16, 16, 24);
+      g.lineBetween(8,  24, 8,  32);
+      g.lineBetween(24, 24, 24, 32);
+      g.lineStyle(1, 0x3d5166, 0.4);
+      g.strokeRect(1, 1, 30, 30);
+      g.lineStyle(1, 0x000000, 0.3); g.strokeRect(0, 0, 32, 32);
+      g.generateTexture('tile_wall', 32, 32); g.destroy();
+    }
+
+    // tile_stone — 중간 회색 + 균열선 (장애물용)
+    {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0x7f8c8d); g.fillRect(0, 0, 32, 32);
+      g.fillStyle(0x95a5a6, 0.5);
+      g.fillRect(2, 2, 13, 13); g.fillRect(17, 17, 13, 13);
+      g.lineStyle(1, 0x566573, 0.8);
+      g.lineBetween(0, 16, 32, 16);
+      g.lineBetween(16, 0, 16, 32);
+      g.lineStyle(1, 0x4d6068, 0.5);
+      g.lineBetween(5, 2, 9, 14); g.lineBetween(22, 18, 26, 30);
+      g.lineBetween(19, 3, 22, 12); g.lineBetween(3, 21, 7, 29);
+      g.lineStyle(2, 0x000000, 0.25); g.strokeRect(0, 0, 32, 32);
+      g.generateTexture('tile_stone', 32, 32); g.destroy();
+    }
+
+    // 아이템 텍스처 — 각 슬롯별 고유 실루엣
+    const _mkItem = (key, fn) => {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0x1a1a2e); g.fillRect(0, 0, 24, 24);
+      fn(g);
+      g.generateTexture(key, 24, 24); g.destroy();
+    };
+
+    // 검 — 날+손잡이
+    _mkItem('item_sword', g => {
+      g.fillStyle(0x95a5a6); g.fillRect(11, 2, 3, 14);   // 날
+      g.fillStyle(0x7f8c8d); g.fillRect(7,  14, 11, 3);  // 가드
+      g.fillStyle(0x6d4c41); g.fillRect(11, 17, 3, 5);   // 손잡이
+    });
+    // 활 — 곡선 + 시위
+    _mkItem('item_bow', g => {
+      g.fillStyle(0x8d6e3f); g.fillRect(5, 2, 3, 20);    // 활대
+      g.fillStyle(0x6d4c20); g.fillRect(5, 2, 5, 3); g.fillRect(5, 19, 5, 3);
+      g.lineStyle(1, 0xd4b896, 1.0);
+      g.lineBetween(15, 3, 15, 21);                       // 시위
+      g.lineBetween(8,  3, 15, 3); g.lineBetween(8, 21, 15, 21);
+    });
+    // 지팡이 — 막대 + 구슬
+    _mkItem('item_staff', g => {
+      g.fillStyle(0x6d4c41); g.fillRect(10, 6, 4, 18);   // 막대
+      g.fillStyle(0x9b59b6); g.fillCircle(12, 5, 5);     // 마법 구슬
+      g.fillStyle(0xd7bde2, 0.5); g.fillCircle(10, 3, 2); // 하이라이트
+    });
+    // 투구
+    _mkItem('item_helmet', g => {
+      g.fillStyle(0x7f8c8d); g.fillEllipse(12, 10, 16, 14); // 돔
+      g.fillStyle(0x566573); g.fillRect(4, 14, 16, 5);       // 챙
+      g.fillStyle(0x95a5a6, 0.4); g.fillEllipse(9, 8, 5, 4); // 광택
+    });
+    // 갑옷
+    _mkItem('item_armor', g => {
+      g.fillStyle(0x2980b9); g.fillRect(4, 6, 16, 14);   // 몸통
+      g.fillStyle(0x1a5276); g.fillRect(4, 6, 16, 4);    // 어깨
+      g.fillRect(4, 6, 3, 14); g.fillRect(17, 6, 3, 14); // 팔 연결부
+      g.fillStyle(0x3498db, 0.4); g.fillRect(7, 9, 4, 8); // 광택
+    });
+    // 바지
+    _mkItem('item_pants', g => {
+      g.fillStyle(0x2471a3); g.fillRect(5, 3, 14, 8);    // 허리
+      g.fillRect(5, 10, 6, 11);                          // 왼다리
+      g.fillRect(13, 10, 6, 11);                         // 오른다리
+      g.fillStyle(0x1a5276); g.fillRect(5, 3, 14, 2);    // 벨트
+    });
+    // 장갑
+    _mkItem('item_gloves', g => {
+      g.fillStyle(0x5d4037); g.fillRect(5, 8, 14, 10);   // 손등
+      g.fillRect(5, 15, 3, 6); g.fillRect(9, 15, 3, 6);  // 손가락
+      g.fillRect(13, 15, 3, 6); g.fillRect(17, 15, 3, 4);
+      g.fillStyle(0x4e342e); g.fillRect(5, 8, 14, 3);    // 커프
+    });
+    // 부츠
+    _mkItem('item_boots', g => {
+      g.fillStyle(0x4e342e); g.fillRect(6, 3, 8, 13);    // 목
+      g.fillStyle(0x5d4037); g.fillRect(4, 14, 14, 7);   // 발
+      g.fillStyle(0x3e2723); g.fillRect(4, 19, 14, 2);   // 밑창
+      g.fillStyle(0x6d4c41, 0.4); g.fillRect(7, 5, 3, 8); // 광택
+    });
+    // 반지
+    _mkItem('item_ring', g => {
+      g.lineStyle(3, 0xf39c12, 1.0); g.strokeCircle(12, 13, 7);
+      g.fillStyle(0xe74c3c); g.fillCircle(12, 6, 4);     // 보석
+      g.fillStyle(0xff8a8a, 0.6); g.fillCircle(11, 5, 2); // 하이라이트
+    });
+    // 목걸이
+    _mkItem('item_necklace', g => {
+      g.lineStyle(2, 0xf0d060, 0.9);
+      g.strokeEllipse(12, 10, 16, 10);                   // 체인
+      g.fillStyle(0x27aee0); g.fillEllipse(12, 18, 8, 6); // 펜던트
+      g.fillStyle(0xaaddff, 0.5); g.fillCircle(11, 17, 2);
+    });
+    // 포션
+    _mkItem('item_potion', g => {
+      g.fillStyle(0x7f8c8d); g.fillRect(10, 2, 5, 4);    // 병목
+      g.fillStyle(0xe74c3c); g.fillEllipse(12, 15, 14, 16); // 병몸통
+      g.fillStyle(0xff8a8a, 0.4); g.fillEllipse(9, 12, 4, 6); // 광택
     });
 
-    // 아이템 텍스처
-    const items = [
-      { key: 'item_sword',   color: 0x95a5a6 },
-      { key: 'item_armor',   color: 0x2980b9 },
-      { key: 'item_ring',    color: 0xf39c12 },
-      { key: 'item_potion',  color: 0xe74c3c },
-    ];
-
-    items.forEach(({ key, color }) => {
-      const g = this.make.graphics({ x: 0, y: 0, add: false });
-      g.fillStyle(0x1a1a2e);
-      g.fillRect(0, 0, 24, 24);
-      g.fillStyle(color);
-      g.fillRect(4, 4, 16, 16);
-      g.generateTexture(key, 24, 24);
-      g.destroy();
+    // 재료 텍스처 — 장비와 구별되는 전용 아이콘
+    // 철 광석 — 회색 덩어리
+    _mkItem('mat_ore', g => {
+      g.fillStyle(0x7f8c8d); g.fillEllipse(12, 14, 16, 12);
+      g.fillStyle(0x95a5a6); g.fillEllipse(10, 11, 8, 6);
+      g.fillStyle(0x566573); g.fillEllipse(16, 17, 6, 4);
+    });
+    // 단단한 가죽 — 갈색 타원형 가죽
+    _mkItem('mat_leather', g => {
+      g.fillStyle(0x8d6e3f); g.fillEllipse(12, 13, 18, 14);
+      g.lineStyle(1, 0x6d4c20, 0.8);
+      g.lineBetween(6, 10, 18, 10); g.lineBetween(6, 14, 18, 14); g.lineBetween(6, 18, 18, 18);
+      g.fillStyle(0xa07840, 0.4); g.fillEllipse(9, 10, 6, 4);
+    });
+    // 흡혈 결정 — 붉은 다이아몬드 (fillPoints 사용)
+    _mkItem('mat_crystal', g => {
+      g.fillStyle(0xc0392b);
+      g.fillPoints([
+        { x: 12, y: 2 }, { x: 21, y: 12 },
+        { x: 12, y: 22 }, { x: 3,  y: 12 },
+      ], true);
+      g.fillStyle(0xe74c3c, 0.6);
+      g.fillPoints([
+        { x: 12, y: 4 }, { x: 19, y: 11 },
+        { x: 12, y: 11 },
+      ], true);
+      g.fillStyle(0xff6b6b, 0.4);
+      g.fillPoints([
+        { x: 12, y: 5 }, { x: 16, y: 9 },
+        { x: 12, y: 9 },
+      ], true);
+    });
+    // 심연석 원석 — 어두운 보라 육각형 (fillPoints 사용)
+    _mkItem('mat_abyss', g => {
+      g.fillStyle(0x4a235a);
+      g.fillPoints([
+        { x: 12, y: 2 }, { x: 21, y: 7 }, { x: 21, y: 17 },
+        { x: 12, y: 22 }, { x: 3, y: 17 }, { x: 3, y: 7 },
+      ], true);
+      g.fillStyle(0x7d3c98, 0.5);
+      g.fillPoints([
+        { x: 12, y: 4 }, { x: 19, y: 8 }, { x: 12, y: 12 }, { x: 5, y: 8 },
+      ], true);
+      g.fillStyle(0xd7bde2, 0.3); g.fillCircle(10, 8, 2);
+    });
+    // 혈족의 문장 — 금/붉은 방패 문양
+    _mkItem('mat_emblem', g => {
+      g.fillStyle(0x922b21);
+      g.fillTriangle(12, 2, 20, 7, 20, 17); g.fillTriangle(12, 2, 4, 7, 4, 17);
+      g.fillRect(4, 16, 16, 4); g.fillTriangle(4, 19, 12, 23, 20, 19);
+      g.fillStyle(0xf39c12); g.fillCircle(12, 11, 4);
+      g.lineStyle(1, 0xe74c3c, 0.7);
+      g.strokeCircle(12, 11, 4);
     });
 
     // 일반 총알 (하늘색 타원)

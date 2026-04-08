@@ -152,8 +152,10 @@ export default class GameScene extends Phaser.Scene {
     const spawnList = [
       { key: 'blood_slime',    count: 15 },
       { key: 'blood_bat',      count: 10 },
+      { key: 'blood_archer',   count: 8,  minDist: 400 },
       { key: 'bloodfang_wolf', count: 5,  minDist: 600 },
       { key: 'crimson_spider', count: 5,  minDist: 500 },
+      { key: 'poison_mage',    count: 4,  minDist: 700 },
       { key: 'blood_golem',    count: 3,  minDist: 800, outerZone: true },
       { key: 'shadow_knight',  count: 3,  minDist: 800, outerZone: true },
     ];
@@ -238,12 +240,37 @@ export default class GameScene extends Phaser.Scene {
   setupEvents() {
     // 중복 등록 방지: 씬 재시작 시 기존 핸들러 먼저 제거
     ['playerShoot','playerMelee','monsterDied','levelUp','playerDied',
-     'playerSkill','skillFailed','defenseBreak','monsterEnraged'].forEach(ev => {
+     'playerSkill','skillFailed','defenseBreak','monsterEnraged','monsterShoot',
+     'equipmentChanged','inventoryChanged','statsChanged'].forEach(ev => {
       this.events.off(ev);
     });
 
-    // 투사체 발사
-    // 원거리 발사
+    // 장비/인벤/스탯 변경 시 자동저장
+    const _autoSave = () => SaveSystem.saveChar(this._charId, this.player);
+    this.events.on('equipmentChanged', _autoSave);
+    this.events.on('inventoryChanged', _autoSave);
+    this.events.on('statsChanged',     _autoSave);
+
+    // 몬스터 원거리 투사체
+    this._monsterBullets = this._monsterBullets || [];
+    this.events.on('monsterShoot', ({ x, y, tx, ty, damage, drainRate, projColor, projSpeed }) => {
+      const angle = Phaser.Math.Angle.Between(x, y, tx, ty);
+      const g = this.add.graphics().setDepth(15);
+      g.fillStyle(projColor, 1);
+      g.fillCircle(0, 0, 5);
+      g.fillStyle(0xffffff, 0.4);
+      g.fillCircle(-2, -2, 2);
+      g.setPosition(x, y);
+      this._monsterBullets.push({
+        g, angle,
+        speed: projSpeed,
+        damage, drainRate,
+        dist: 0,
+        maxDist: 400,
+      });
+    });
+
+    // 플레이어 투사체 발사
     this.events.on('playerShoot', ({ fromX, fromY, toX, toY, damage, isCrit, maxRange }) => {
       const bullet = new Projectile(this, fromX, fromY, toX, toY, { damage, isCrit, maxRange });
       this._bullets.push(bullet);
@@ -323,6 +350,35 @@ export default class GameScene extends Phaser.Scene {
     this._bullets = this._bullets.filter(b => {
       if (!b.active) return false;
       return b.tick(delta, monsterList, this);
+    });
+    this._checkMonsterBullets(delta);
+  }
+
+  _checkMonsterBullets(delta) {
+    if (!this._monsterBullets) return;
+    const player = this.player;
+    const dt = delta / 1000;
+
+    this._monsterBullets = this._monsterBullets.filter(b => {
+      const dx = Math.cos(b.angle) * b.speed * dt;
+      const dy = Math.sin(b.angle) * b.speed * dt;
+      b.g.x += dx;
+      b.g.y += dy;
+      b.dist += Math.sqrt(dx * dx + dy * dy);
+
+      // 사거리 초과 → 제거
+      if (b.dist >= b.maxDist) { b.g.destroy(); return false; }
+
+      // 플레이어 충돌 체크
+      if (player?.isAlive) {
+        const hit = Phaser.Math.Distance.Between(b.g.x, b.g.y, player.x, player.y) < 16;
+        if (hit) {
+          player.takeDamage(b.damage, b.drainRate, null);
+          b.g.destroy();
+          return false;
+        }
+      }
+      return true;
     });
   }
 
@@ -828,17 +884,75 @@ export default class GameScene extends Phaser.Scene {
   }
 
   enterDungeon() {
-    SaveSystem.saveChar(this._charId, this.player);
-    this.cameras.main.fadeOut(300, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.stop('UIScene');
-      this.scene.start('DungeonScene', {
-        jobKey:   this._jobKey,
-        charId:   this._charId,
-        loadSave: true,
-        multi:    this._isMulti,
+    if (this._diffPanel) return; // 이미 열려있으면 무시
+    this._showDifficultyPanel();
+  }
+
+  _showDifficultyPanel() {
+    const W = 1280, H = 720;
+    const PW = 520, PH = 440;
+    const px = (W - PW) / 2, py = (H - PH) / 2;
+    const D  = 500; // depth
+    const sf = obj => { obj.setScrollFactor(0).setDepth(D); return obj; };
+
+    const DIFFS = [
+      { level: 1, name: '일반', color: 0x2ecc71, waves: 4, rewardMult: 1.0, desc: '입문자용. 기본 구성.' },
+      { level: 2, name: '고급', color: 0x3498db, waves: 5, rewardMult: 1.4, desc: 'HP×1.3 / 데미지×1.2' },
+      { level: 3, name: '잔혹', color: 0x9b59b6, waves: 6, rewardMult: 2.0, desc: 'HP×1.7 / 데미지×1.5' },
+      { level: 4, name: '악몽', color: 0xe67e22, waves: 7, rewardMult: 2.8, desc: 'HP×2.2 / 데미지×1.9' },
+      { level: 5, name: '심연', color: 0xe74c3c, waves: 8, rewardMult: 4.0, desc: 'HP×3.0 / 데미지×2.5  최고 보상' },
+    ];
+
+    // 모든 요소를 배열로 관리 (Container 미사용 — 입력 히트 영역 문제 방지)
+    this._diffEls = [];
+    const add = obj => { this._diffEls.push(obj); return sf(obj); };
+    const destroy = () => { this._diffEls.forEach(o => o.destroy()); this._diffEls = null; this._diffPanel = false; };
+
+    // 반투명 오버레이
+    add(this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.6));
+    // 패널 배경
+    add(this.add.rectangle(px + PW / 2, py + PH / 2, PW, PH, 0x0a0005, 0.97)).setStrokeStyle(2, 0xc0392b);
+    // 타이틀
+    add(this.add.text(W / 2, py + 18, '던전 난이도 선택', { fontSize: '20px', fill: '#e74c3c', fontStyle: 'bold' }).setOrigin(0.5, 0));
+    // 구분선
+    add(this.add.rectangle(px + PW / 2, py + 51, PW, 1, 0x4a0000));
+
+    DIFFS.forEach((d, i) => {
+      const rx = px + 10,  ry = py + 60 + i * 72;
+      const colorHex = '#' + d.color.toString(16).padStart(6, '0');
+
+      const rowBg = add(this.add.rectangle(rx + (PW - 20) / 2, ry + 32, PW - 20, 64, 0x150005)
+        .setStrokeStyle(1, d.color, 0.5).setInteractive({ useHandCursor: true }));
+
+      add(this.add.text(rx + 10,       ry + 10, `Lv.${d.level}  ${d.name}`, { fontSize: '16px', fill: colorHex, fontStyle: 'bold' }).setOrigin(0, 0));
+      add(this.add.text(rx + 10,       ry + 34, d.desc,  { fontSize: '11px', fill: '#aaaaaa' }).setOrigin(0, 0));
+      add(this.add.text(px + PW - 120, ry + 14, `${d.waves}웨이브`, { fontSize: '13px', fill: '#cccccc' }).setOrigin(0, 0));
+      add(this.add.text(px + PW - 120, ry + 34, `보상 ×${d.rewardMult}`, { fontSize: '12px', fill: '#f39c12' }).setOrigin(0, 0));
+
+      rowBg.on('pointerover',  () => rowBg.setFillStyle(0x2a0010));
+      rowBg.on('pointerout',   () => rowBg.setFillStyle(0x150005));
+      rowBg.on('pointerdown',  () => {
+        destroy();
+        SaveSystem.saveChar(this._charId, this.player);
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.stop('UIScene');
+          this.scene.start('DungeonScene', {
+            jobKey: this._jobKey, charId: this._charId,
+            loadSave: true, multi: this._isMulti, difficulty: d.level,
+          });
+        });
       });
     });
+
+    // 취소 버튼
+    const cancelBtn = add(this.add.text(W / 2, py + PH - 18, '취소', { fontSize: '14px', fill: '#888888' })
+      .setOrigin(0.5, 1).setInteractive({ useHandCursor: true }));
+    cancelBtn.on('pointerdown', destroy);
+    cancelBtn.on('pointerover', () => cancelBtn.setStyle({ fill: '#ffffff' }));
+    cancelBtn.on('pointerout',  () => cancelBtn.setStyle({ fill: '#888888' }));
+
+    this._diffPanel = true;
   }
 
   // ════════════════════════════════════════════════
