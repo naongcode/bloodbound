@@ -76,19 +76,6 @@ export default class CombatSystem {
     return actual;
   }
 
-  // ── 피해 적용 (플레이어 → 몬스터) ────────────────────────
-  applyDamageToMonster(monster, damageResult, attacker = null) {
-    const { damage, isCrit } = damageResult;
-    monster.hp = Math.max(0, monster.hp - damage);
-
-    this.showDamageNumber(monster, damage, isCrit);
-
-    if (monster.hp <= 0) {
-      this.scene.events.emit('monsterDied', { monster, attacker });
-    }
-    return damage;
-  }
-
   // ── 피해 숫자 표시 ───────────────────────────────────────
   showDamageNumber(target, damage, isCrit) {
     const x = target.x + Phaser.Math.Between(-20, 20);
@@ -108,24 +95,6 @@ export default class CombatSystem {
       alpha: 0,
       duration: 900,
       ease: 'Power1',
-      onComplete: () => text.destroy()
-    });
-  }
-
-  // ── 흡혈 숫자 표시 (초록) ────────────────────────────────
-  showDrainNumber(target, amount) {
-    const x    = target.x + Phaser.Math.Between(-15, 15);
-    const y    = target.y - 10;
-    const text = this.scene.add.text(x, y, `+${amount}`, {
-      fontSize: '13px', fill: '#27ae60',
-      stroke: '#000000', strokeThickness: 2
-    }).setDepth(100);
-
-    this.scene.tweens.add({
-      targets: text,
-      y: y - 30,
-      alpha: 0,
-      duration: 700,
       onComplete: () => text.destroy()
     });
   }

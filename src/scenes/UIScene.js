@@ -1,5 +1,5 @@
 // HUD + 인벤토리 UI 씬 (GameScene 위에 오버레이)
-import { ITEM_DATA, ITEM_GRADES } from '../data/items.js';
+import { ITEM_DATA, gradeColor, gradeHexColor } from '../data/items.js';
 import SaveSystem from '../systems/SaveSystem.js';
 
 export default class UIScene extends Phaser.Scene {
@@ -201,10 +201,35 @@ export default class UIScene extends Phaser.Scene {
     ];
 
     slots.forEach(({ key, label, x, y }) => {
-      const slotBg = this.add.rectangle(x, y, 52, 52, 0x2c2c4a).setOrigin(0).setStrokeStyle(1, 0x555577);
+      const slotBg = this.add.rectangle(x, y, 52, 52, 0x2c2c4a).setOrigin(0).setStrokeStyle(1, 0x555577)
+        .setInteractive({ useHandCursor: true });
       const slotLbl = this.add.text(x + 26, y + 54, label, { fontSize: '9px', fill: '#888888' }).setOrigin(0.5, 0);
       this.invPanel.add([slotBg, slotLbl]);
       this.equipSlotGfx[key] = { bg: slotBg, label: slotLbl, icon: null, x, y };
+
+      slotBg.on('pointerover', () => {
+        const item = this.player?.inventory?.equipment[key];
+        if (item) {
+          slotBg.setFillStyle(0x3a3a5a);
+          const wx = this.invPanel.x + x;
+          const wy = this.invPanel.y + y;
+          this._showItemTooltip(item, wx, wy);
+        }
+      });
+      slotBg.on('pointerout', () => {
+        slotBg.setFillStyle(0x2c2c4a);
+        this._hideItemTooltip();
+      });
+      slotBg.on('pointerdown', () => {
+        const item = this.player?.inventory?.equipment[key];
+        if (!item) return;
+        const ok = this.gameScene.inventorySystem.unequip(this.player, key);
+        if (!ok) {
+          this._showFeedback('인벤토리가 가득 찼습니다', '#e74c3c');
+        } else {
+          this.refreshAll();
+        }
+      });
     });
 
     const divider = this.add.rectangle(0, equipY + 130, pw, 1, 0x444466).setOrigin(0);
@@ -413,11 +438,7 @@ export default class UIScene extends Phaser.Scene {
         }
 
         // 등급 색상 테두리
-        const gradeColors = {
-          common: 0x888888, uncommon: 0x2ecc71, rare: 0x3498db,
-          epic: 0x9b59b6, legendary: 0xe67e22, abyss: 0xc0392b
-        };
-        gfx.bg.setStrokeStyle(2, gradeColors[item.grade] || 0x444466);
+        gfx.bg.setStrokeStyle(2, gradeHexColor(item.grade));
       } else {
         gfx.bg.setStrokeStyle(1, 0x444466);
       }
@@ -475,12 +496,33 @@ export default class UIScene extends Phaser.Scene {
     if (!item) return;
 
     if (item.type === 'equipment') {
-      this.gameScene.inventorySystem.equip(this.player, index);
+      if (item.requiredLevel && this.player.level < item.requiredLevel) {
+        this._showFeedback(`레벨 ${item.requiredLevel} 이상 착용 가능`, '#e74c3c');
+        return;
+      }
+      const ok = this.gameScene.inventorySystem.equip(this.player, index);
+      if (!ok) {
+        this._showFeedback('인벤토리가 가득 찼습니다', '#e74c3c');
+      }
       this.refreshAll();
     } else if (item.type === 'consumable') {
       this.gameScene.inventorySystem.useItem(this.player, index);
       this.refreshAll();
     }
+  }
+
+  _showFeedback(msg, color = '#ffffff') {
+    if (this._feedbackTxt) {
+      this._feedbackTxt.destroy();
+      if (this._feedbackTimer) { this._feedbackTimer.remove(); this._feedbackTimer = null; }
+    }
+    this._feedbackTxt = this.add.text(640, 340, msg, {
+      fontSize: '15px', fill: color, fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(400);
+    this._feedbackTimer = this.time.delayedCall(1800, () => {
+      if (this._feedbackTxt) { this._feedbackTxt.destroy(); this._feedbackTxt = null; }
+    });
   }
 
   // ════════════════════════════════════════════════
@@ -489,10 +531,6 @@ export default class UIScene extends Phaser.Scene {
   _showItemTooltip(item, slotWorldX, slotWorldY) {
     this._hideItemTooltip();
 
-    const GRADE_COLOR = {
-      common: '#aaaaaa', uncommon: '#2ecc71', rare: '#3498db',
-      epic: '#9b59b6', legendary: '#e67e22', abyss: '#c0392b',
-    };
     const GRADE_LABEL = {
       common: '일반', uncommon: '고급', rare: '희귀',
       epic: '영웅', legendary: '전설', abyss: '심연',
@@ -502,14 +540,10 @@ export default class UIScene extends Phaser.Scene {
       RES: '저항', defense: '방어', attackPower: '공격력',
       critRate: '치명타율', critDamage: '치명타 피해',
     };
-    const GRADE_BORDER = {
-      common: 0x888888, uncommon: 0x2ecc71, rare: 0x3498db,
-      epic: 0x9b59b6, legendary: 0xe67e22, abyss: 0xc0392b,
-    };
 
-    const nameColor  = GRADE_COLOR[item.grade]  ?? '#ffffff';
-    const gradeLabel = GRADE_LABEL[item.grade]  ?? '';
-    const border     = GRADE_BORDER[item.grade] ?? 0x666666;
+    const nameColor  = gradeColor(item.grade);
+    const gradeLabel = GRADE_LABEL[item.grade] ?? '';
+    const border     = gradeHexColor(item.grade);
     const tw = 190;
 
     // 텍스트 라인 구성
@@ -622,11 +656,6 @@ export default class UIScene extends Phaser.Scene {
       { key: 'resistance_ring',  price: 800 },
     ];
 
-    const gradeColors = {
-      common: '#aaaaaa', uncommon: '#2ecc71', rare: '#3498db',
-      epic: '#9b59b6', legendary: '#e67e22',
-    };
-
     SHOP_ITEMS.forEach((si, i) => {
       const data = ITEM_DATA[si.key];
       if (!data) return;
@@ -643,7 +672,7 @@ export default class UIScene extends Phaser.Scene {
       this.shopPanel.add(icon);
 
       // 이름 (등급 색상)
-      const nameColor = gradeColors[data.grade] ?? '#ffffff';
+      const nameColor = gradeColor(data.grade);
       this.shopPanel.add(this.add.text(64, ry + 10, data.name, {
         fontSize: '13px', fill: nameColor, fontStyle: 'bold',
       }));
@@ -754,8 +783,6 @@ export default class UIScene extends Phaser.Scene {
 
   refreshEnhance() {
     const equip = this.player.inventory.equipment;
-    const GRADE_COLORS = { common: '#aaaaaa', uncommon: '#2ecc71', rare: '#3498db', epic: '#9b59b6', legendary: '#e67e22' };
-
     this._enhSlotRows.forEach(({ key, nameTxt, costTxt, btn, btnTxt }) => {
       const item = equip[key];
       if (!item) {
@@ -765,7 +792,7 @@ export default class UIScene extends Phaser.Scene {
         return;
       }
       const level = item.enhance ?? 0;
-      const nameColor = GRADE_COLORS[item.grade] ?? '#ffffff';
+      const nameColor = gradeColor(item.grade);
       nameTxt.setText(`${item.name}${level > 0 ? ` +${level}` : ''}`).setStyle({ fill: nameColor });
       if (level >= 5) {
         costTxt.setText('최대').setStyle({ fill: '#f1c40f' });

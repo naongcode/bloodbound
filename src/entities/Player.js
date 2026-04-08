@@ -168,15 +168,23 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   // ── 상태이상 처리 ─────────────────────────────────────────────
   updateStatusEffects(delta) {
     this.statusEffects = this.statusEffects.filter(effect => {
-      effect.elapsed = (effect.elapsed || 0) + delta;
-      if (effect.type === 'poison' && effect.elapsed % 1000 < delta) {
-        const dmg = Math.floor(this.totalStats.INT * 0.5);
-        this.hp   = Math.max(0, this.hp - dmg);
+      effect.elapsed    = (effect.elapsed    ?? 0) + delta;
+      effect.tickTimer  = (effect.tickTimer  ?? 0) + delta;
+
+      if (effect.type === 'poison') {
+        while (effect.tickTimer >= 1000) {
+          effect.tickTimer -= 1000;
+          const dmg = Math.floor(this.totalStats.INT * 0.5);
+          this.hp   = Math.max(0, this.hp - dmg);
+        }
+      } else if (effect.type === 'blood_curse') {
+        while (effect.tickTimer >= 5000) {
+          effect.tickTimer -= 5000;
+          const dmg = Math.floor(this.maxHp * 0.02);
+          this.hp   = Math.max(0, this.hp - dmg);
+        }
       }
-      if (effect.type === 'blood_curse' && effect.elapsed % 5000 < delta) {
-        const dmg = Math.floor(this.maxHp * 0.02);
-        this.hp   = Math.max(0, this.hp - dmg);
-      }
+
       return effect.elapsed < effect.duration;
     });
   }

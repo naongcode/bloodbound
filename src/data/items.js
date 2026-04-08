@@ -21,6 +21,22 @@ export const ITEM_SLOTS = {
   NECKLACE: 'necklace',
 };
 
+// 등급 색상 헬퍼 — 텍스트용 문자열 색상
+const _GRADE_HEX_MAP = {
+  common: 0x888888, uncommon: 0x2ecc71, rare: 0x3498db,
+  epic:   0x9b59b6, legendary: 0xe67e22, abyss: 0xc0392b,
+};
+
+/** 텍스트용 CSS 색상 문자열 반환 (예: '#3498db') */
+export function gradeColor(grade) {
+  return ITEM_GRADES[grade?.toUpperCase()]?.color ?? '#ffffff';
+}
+
+/** Graphics strokeStyle 등에 사용할 hex 색상 반환 (예: 0x3498db) */
+export function gradeHexColor(grade) {
+  return _GRADE_HEX_MAP[grade] ?? 0x444466;
+}
+
 export const ITEM_DATA = {
   // 무기
   iron_sword: {

@@ -45,16 +45,4 @@ export default class LevelSystem {
     this.scene.events.emit('levelUp', { player, level: player.level });
   }
 
-  // 스탯 총합 계산 (기본 + 장비 보너스)
-  calcTotalStats(player) {
-    const total = { ...player.stats };
-    Object.values(player.inventory.equipment).forEach(item => {
-      if (item && item.stats) {
-        Object.entries(item.stats).forEach(([k, v]) => {
-          total[k] = (total[k] || 0) + v;
-        });
-      }
-    });
-    return total;
-  }
 }
