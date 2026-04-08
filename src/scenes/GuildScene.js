@@ -190,7 +190,7 @@ export default class GuildScene extends Phaser.Scene {
       ['길드 자금', `${guild.fund.toLocaleString()} G`],
       ['기여도',   `${guild.contribution.toLocaleString()}`],
       ['구성원',   `${guild.members.length}명`],
-      ['활성 버프', guild.activeBuff ? guild.activeBuff.name : '없음'],
+      ['활성 버프', (() => { const n = Object.values(guild.buffLevels ?? {}).filter(v => v > 0).length; return n ? `${n}종 적용 중` : '없음'; })()],
     ];
     stats.forEach(([label, val], i) => {
       const col = i % 2, row = Math.floor(i / 2);
@@ -254,12 +254,12 @@ export default class GuildScene extends Phaser.Scene {
     );
 
     quests.forEach((quest, i) => {
-      const qy  = py + 90 + i * 130;
+      const qy  = py + 90 + i * 148;
       const prog = guildSystem.getQuestProgress(quest.id);
       const done = prog >= quest.count;
       const claimed = prog === -1;
 
-      const cardBg = this.add.rectangle(W / 2, qy + 50, pw - 60, 110, claimed ? 0x071a07 : 0x0d0d28)
+      const cardBg = this.add.rectangle(W / 2, qy + 50, pw - 60, 126, claimed ? 0x071a07 : 0x0d0d28)
         .setStrokeStyle(2, claimed ? 0x2ecc71 : done ? 0xf1c40f : 0x333355);
       this._content.add(cardBg);
 
@@ -365,7 +365,7 @@ export default class GuildScene extends Phaser.Scene {
   // ════════════════════════════════════════════════
   _buildBuffTab() {
     const py = 110, pw = W - 80;
-    const bg = this.add.rectangle(W / 2, py + 280, pw, 520, 0x0d0d1e, 0.95).setStrokeStyle(2, 0x2a2a4a);
+    const bg = this.add.rectangle(W / 2, py + 280, pw, 550, 0x0d0d1e, 0.95).setStrokeStyle(2, 0x2a2a4a);
     this._content.add(bg);
 
     this._content.add(
@@ -397,51 +397,59 @@ export default class GuildScene extends Phaser.Scene {
     });
     this._content.add([donateBtn, donateTxt]);
 
-    // 활성 버프 표시
-    const active = guildSystem.guild.activeBuff;
-    if (active && active.expiresAt > Date.now()) {
-      const remain = Math.ceil((active.expiresAt - Date.now()) / 60000);
-      this._content.add(
-        this.add.text(W / 2, py + 80, `현재 버프: ${active.name}  (남은 시간: ${remain}분)`, {
-          fontSize: '13px', fill: '#2ecc71', fontStyle: 'bold'
-        }).setOrigin(0.5)
-      );
-    }
+    const effectLabel = { attackBonus: '공격력', defenseBonus: '방어력', dropBonus: '드롭률', speedBonus: '이동속도', xpBonus: 'EXP', skillCdBonus: '스킬쿨타임' };
+    const fmtEffect = e => Object.entries(e).map(([k, v]) => `${effectLabel[k] ?? k} ${v > 0 ? '+' : ''}${Math.round(v * 100)}%`).join('  |  ');
 
-    // 버프 카드 목록
+    // 버프 카드 목록 (레벨 1~3 강화형)
     GUILD_BUFFS.forEach((buff, i) => {
-      const by = py + 120 + i * 80;
-      const isActive = active?.key === buff.key && active?.expiresAt > Date.now();
+      const by = py + 80 + i * 100;
+      const curLv = guildSystem.getBuffLevel(buff.key); // 0~3
+      const isMax = curLv >= 3;
 
-      const cardBg = this.add.rectangle(W / 2, by + 30, pw - 60, 68,
-        isActive ? 0x0a2a0a : 0x0d0d28
-      ).setStrokeStyle(2, isActive ? 0x2ecc71 : 0x2a2a4a);
+      const cardBg = this.add.rectangle(W / 2, by + 36, pw - 60, 92,
+        curLv > 0 ? 0x0a1a0a : 0x0d0d28
+      ).setStrokeStyle(2, curLv > 0 ? 0x2ecc71 : 0x2a2a4a);
       this._content.add(cardBg);
 
-      this._content.add(this.add.text(100, by + 12, buff.name, {
-        fontSize: '15px', fill: isActive ? '#2ecc71' : '#ffffff', fontStyle: 'bold'
+      // 버프명 + 레벨 표시
+      const lvStars = '★'.repeat(curLv) + '☆'.repeat(3 - curLv);
+      this._content.add(this.add.text(100, by + 10, `${buff.name}  ${lvStars}  (Lv.${curLv}/3)`, {
+        fontSize: '14px', fill: curLv > 0 ? '#2ecc71' : '#ffffff', fontStyle: 'bold'
       }));
 
-      // 효과 텍스트
-      const effectStr = Object.entries(buff.effect).map(([k, v]) => {
-        const labels = { attackBonus: '공격력', defenseBonus: '방어력', dropBonus: '드롭률', speedBonus: '이동속도', xpBonus: 'EXP', skillCdBonus: '스킬쿨타임' };
-        return `${labels[k] ?? k} ${v > 0 ? '+' : ''}${Math.round(v * 100)}%`;
-      }).join('  |  ');
-      this._content.add(this.add.text(100, by + 34, effectStr, { fontSize: '11px', fill: '#888' }));
-      this._content.add(this.add.text(100, by + 50, `지속: 2시간  |  비용: ${buff.cost.toLocaleString()} G`, { fontSize: '11px', fill: '#666' }));
+      // 현재 효과
+      if (curLv > 0) {
+        this._content.add(this.add.text(100, by + 30, `현재: ${fmtEffect(buff.levels[curLv - 1].effect)}`, {
+          fontSize: '11px', fill: '#2ecc71'
+        }));
+      }
 
-      if (!isActive) {
-        const actBtn = this.add.rectangle(W - 130, by + 30, 140, 34, 0x0d1a00)
-          .setStrokeStyle(2, 0x8bc34a).setInteractive({ useHandCursor: true });
-        const actTxt = this.add.text(W - 130, by + 30, '발동', {
-          fontSize: '13px', fill: '#8bc34a', fontStyle: 'bold'
+      // 다음 레벨 효과 + 비용
+      if (!isMax) {
+        const next = buff.levels[curLv];
+        this._content.add(this.add.text(100, by + curLv > 0 ? 48 : 30, `다음: ${fmtEffect(next.effect)}  |  비용: ${next.cost.toLocaleString()} G`, {
+          fontSize: '11px', fill: '#888'
+        }));
+      } else {
+        this._content.add(this.add.text(100, by + 48, '최대 레벨 달성', { fontSize: '11px', fill: '#f1c40f' }));
+      }
+
+      // 강화 버튼
+      if (!isMax) {
+        const btnColor = curLv === 0 ? 0x0d1a00 : 0x001a1a;
+        const btnStroke = curLv === 0 ? 0x8bc34a : 0x00bcd4;
+        const btnTxt = curLv === 0 ? '발동' : '강화';
+        const actBtn = this.add.rectangle(W - 155, by + 36, 140, 36, btnColor)
+          .setStrokeStyle(2, btnStroke).setInteractive({ useHandCursor: true });
+        const actTxt = this.add.text(W - 155, by + 36, btnTxt, {
+          fontSize: '13px', fill: curLv === 0 ? '#8bc34a' : '#00bcd4', fontStyle: 'bold'
         }).setOrigin(0.5);
-        actBtn.on('pointerover', () => actBtn.setFillStyle(0x1a2e00));
-        actBtn.on('pointerout',  () => actBtn.setFillStyle(0x0d1a00));
+        actBtn.on('pointerover', () => actBtn.setFillStyle(btnColor + 0x111100));
+        actBtn.on('pointerout',  () => actBtn.setFillStyle(btnColor));
         actBtn.on('pointerdown', () => {
           const res = guildSystem.activateBuff(buff.key);
           if (res.ok) this._showTab('buff');
-          else alert(res.reason ?? '발동 실패');
+          else alert(res.reason ?? '강화 실패');
         });
         this._content.add([actBtn, actTxt]);
       }

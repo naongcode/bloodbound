@@ -32,17 +32,53 @@ export const GUILD_QUEST_POOL = [
   { id: 'boss_kill_1',    title: '혈왕 토벌',           desc: '필드 보스 혈왕 처치',      type: 'boss',    count: 1,             guildXp: 3000, goldReward: 1000},
 ];
 
-// 길드 버프 목록
+// 길드 버프 목록 (레벨 1~3 강화, 영구 적용)
+// levels[i] = { effect, cost }  — cost는 해당 레벨로 올리는 데 드는 길드 자금
 export const GUILD_BUFFS = [
-  { key: 'combat_spirit',  name: '전투의 기운',   effect: { attackBonus: 0.10 },               cost: 3000, duration: 7200000 },
-  { key: 'defense_will',   name: '방어의 의지',   effect: { defenseBonus: 0.10 },              cost: 3000, duration: 7200000 },
-  { key: 'explorer',       name: '탐험가의 본능', effect: { dropBonus: 0.05, speedBonus: 0.05 },cost: 4000, duration: 7200000 },
-  { key: 'abyss_awakening',name: '심연의 각성',   effect: { skillCdBonus: -0.10 },             cost: 5000, duration: 7200000 },
-  { key: 'blood_pact',     name: '혈맹의 서약',   effect: { attackBonus: 0.05, defenseBonus: 0.05, dropBonus: 0.025, speedBonus: 0.025, xpBonus: 0.10 }, cost: 15000, duration: 7200000 },
+  {
+    key: 'combat_spirit',  name: '전투의 기운',
+    levels: [
+      { effect: { attackBonus: 0.05 }, cost: 1000 },
+      { effect: { attackBonus: 0.10 }, cost: 2000 },
+      { effect: { attackBonus: 0.15 }, cost: 3000 },
+    ],
+  },
+  {
+    key: 'defense_will',   name: '방어의 의지',
+    levels: [
+      { effect: { defenseBonus: 0.05 }, cost: 1000 },
+      { effect: { defenseBonus: 0.10 }, cost: 2000 },
+      { effect: { defenseBonus: 0.15 }, cost: 3000 },
+    ],
+  },
+  {
+    key: 'explorer',       name: '탐험가의 본능',
+    levels: [
+      { effect: { dropBonus: 0.03, speedBonus: 0.03 }, cost: 1500 },
+      { effect: { dropBonus: 0.05, speedBonus: 0.05 }, cost: 2500 },
+      { effect: { dropBonus: 0.08, speedBonus: 0.08 }, cost: 4000 },
+    ],
+  },
+  {
+    key: 'abyss_awakening', name: '심연의 각성',
+    levels: [
+      { effect: { skillCdBonus: -0.05 }, cost: 2000 },
+      { effect: { skillCdBonus: -0.08 }, cost: 3500 },
+      { effect: { skillCdBonus: -0.12 }, cost: 5000 },
+    ],
+  },
+  {
+    key: 'blood_pact',     name: '혈맹의 서약',
+    levels: [
+      { effect: { attackBonus: 0.03, defenseBonus: 0.03, dropBonus: 0.02, speedBonus: 0.02, xpBonus: 0.05 }, cost: 5000  },
+      { effect: { attackBonus: 0.05, defenseBonus: 0.05, dropBonus: 0.03, speedBonus: 0.03, xpBonus: 0.08 }, cost: 10000 },
+      { effect: { attackBonus: 0.08, defenseBonus: 0.08, dropBonus: 0.05, speedBonus: 0.05, xpBonus: 0.12 }, cost: 18000 },
+    ],
+  },
 ];
 
 // 길드 창설 조건
 export const GUILD_CREATE_REQUIREMENTS = {
-  minLevel: 20,
+  minLevel: 5,
   goldCost: 5000,
 };

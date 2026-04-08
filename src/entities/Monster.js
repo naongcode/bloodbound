@@ -103,8 +103,7 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
       const angle = Phaser.Math.Angle.Between(this.x, this.y, this.target.x, this.target.y);
       const speed = this.isEnraged ? this.speed * 1.3 : this.speed;
       this.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-      if (this.target.x < this.x) this.setFlipX(false);
-      else this.setFlipX(true);
+      this.setFlipX(this.target.x < this.x);
     } else {
       this.setVelocity(0, 0);
       this.tryAttack(delta);
@@ -197,7 +196,8 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
     this.defenseState = null;
     this.defenseAura.clear();
     this.isStunned = true;
-    this.stunTimer = 3000;
+    this.stunTimer = 4000;
+    this._breakCooldown = 10000; // 파훼 후 10초간 재발동 금지
     this.clearTint();
 
     // 파훼 이펙트
@@ -207,9 +207,17 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
 
   // ── 방어 상태 업데이트 ────────────────────────────────────
   updateDefenseState(delta, time) {
-    // 주기적 방어 상태 (혈족 전사 등)
     const dd = this.monsterData.defenseState;
     if (!dd) return;
+
+    // 파훼 쿨다운 차감 (스턴 중에도 카운트)
+    if (this._breakCooldown > 0) {
+      this._breakCooldown -= delta;
+      return;
+    }
+
+    // 스턴 중엔 새 방어 발동 안 함
+    if (this.isStunned) return;
 
     if (dd.trigger === 'periodic') {
       this.defenseTimer += delta;

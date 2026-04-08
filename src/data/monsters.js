@@ -66,13 +66,92 @@ export const MONSTER_DATA = {
     attackCooldown: 1200,
     aggroRange: 300,
     defenseState: {
-      trigger: 0.4,         // HP 40% 이하
+      trigger: 0.3,         // HP 30% 이하
       type: 'physical_barrier',
     },
     patterns: ['charge', 'bite_combo', 'pack_assault'],
     dropTable: [
       { itemKey: 'blood_crystal', chance: 0.5, quantity: [2, 4] },
       { itemKey: 'leather',       chance: 0.7, quantity: [2, 5] },
+    ]
+  },
+
+  crimson_spider: {
+    key: 'crimson_spider',
+    name: '붉은 독거미',
+    texture: 'monster_spider',
+    level: 20,
+    baseHp: 180,
+    baseDamage: 26,
+    defense: 6,
+    speed: 95,
+    xpReward: 70,
+    goldReward: { min: 18, max: 35 },
+    drainRate: 0.25,
+    drainType: 'poison',
+    attackRange: 42,
+    attackCooldown: 1100,
+    aggroRange: 280,
+    patterns: ['poison_bite', 'web_snare'],
+    dropTable: [
+      { itemKey: 'blood_crystal', chance: 0.4, quantity: [1, 3] },
+      { itemKey: 'leather',       chance: 0.6, quantity: [2, 4] },
+    ]
+  },
+
+  blood_golem: {
+    key: 'blood_golem',
+    name: '혈석 골렘',
+    texture: 'monster_golem',
+    level: 40,
+    baseHp: 900,
+    baseDamage: 85,
+    defense: 45,
+    speed: 45,
+    xpReward: 450,
+    goldReward: { min: 110, max: 200 },
+    drainRate: 0.20,
+    drainType: 'normal',
+    attackRange: 55,
+    attackCooldown: 1800,
+    aggroRange: 260,
+    defenseState: {
+      trigger: 0.4,
+      type: 'physical_barrier',
+    },
+    patterns: ['ground_slam', 'blood_boulder'],
+    dropTable: [
+      { itemKey: 'blood_crystal', chance: 0.7, quantity: [4, 8] },
+      { itemKey: 'abyss_stone',   chance: 0.4, quantity: [1, 3] },
+    ]
+  },
+
+  shadow_knight: {
+    key: 'shadow_knight',
+    name: '어둠 기사',
+    texture: 'monster_shadowknight',
+    level: 60,
+    baseHp: 650,
+    baseDamage: 110,
+    defense: 30,
+    speed: 88,
+    xpReward: 550,
+    goldReward: { min: 130, max: 240 },
+    drainRate: 0.40,
+    drainType: 'skill',
+    attackRange: 52,
+    attackCooldown: 900,
+    aggroRange: 320,
+    defenseState: {
+      trigger: 'periodic',
+      interval: 10000,
+      type: 'full_guard',
+    },
+    patterns: ['dark_slash', 'shadow_dash', 'full_guard'],
+    dropTable: [
+      { itemKey: 'blood_crystal',   chance: 0.65, quantity: [4, 7] },
+      { itemKey: 'abyss_stone',     chance: 0.45, quantity: [1, 3] },
+      { itemKey: 'bloodkin_emblem', chance: 0.35, quantity: [1, 2] },
     ]
   },
 
@@ -108,12 +187,18 @@ export const MONSTER_DATA = {
 
 export const MONSTER_SPAWN_TABLES = {
   plains: [
-    { key: 'blood_slime', weight: 50, minLevel: 1 },
-    { key: 'blood_bat',   weight: 30, minLevel: 5 },
+    { key: 'blood_slime',    weight: 50, minLevel: 1  },
+    { key: 'blood_bat',      weight: 30, minLevel: 5  },
+    { key: 'crimson_spider', weight: 20, minLevel: 15 },
   ],
   forest: [
     { key: 'bloodfang_wolf', weight: 40, minLevel: 18 },
     { key: 'blood_bat',      weight: 30, minLevel: 5  },
-    { key: 'blood_slime',    weight: 30, minLevel: 1  },
+    { key: 'blood_slime',    weight: 20, minLevel: 1  },
+    { key: 'crimson_spider', weight: 10, minLevel: 15 },
+  ],
+  outer: [
+    { key: 'blood_golem',   weight: 50, minLevel: 35 },
+    { key: 'shadow_knight', weight: 50, minLevel: 50 },
   ],
 };

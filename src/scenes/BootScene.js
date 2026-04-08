@@ -54,39 +54,70 @@ export default class BootScene extends Phaser.Scene {
     });
 
     // 몬스터 텍스처
-    const monsters = [
-      { key: 'monster_slime',   color: 0xe74c3c, shape: 'circle' },
-      { key: 'monster_bat',     color: 0x8e44ad, shape: 'bat'    },
-      { key: 'monster_wolf',    color: 0x7f8c8d, shape: 'rect'   },
-      { key: 'monster_bloodkin',color: 0xc0392b, shape: 'rect'   },
-    ];
-
-    monsters.forEach(({ key, color, shape }) => {
+    [
+    // 흡혈 슬라임 — 붉은 원형
+    { key: 'monster_slime', draw(g) {
+      g.fillStyle(0xe74c3c); g.fillCircle(16, 18, 14);
+      g.fillStyle(0xffffff); g.fillCircle(11, 15, 3); g.fillCircle(21, 15, 3);
+      g.fillStyle(0x000000); g.fillCircle(12, 15, 1.5); g.fillCircle(22, 15, 1.5);
+    }},
+    // 피박쥐 — 보라 날개
+    { key: 'monster_bat', draw(g) {
+      g.fillStyle(0x8e44ad); g.fillEllipse(8, 16, 14, 8); g.fillEllipse(24, 16, 14, 8);
+      g.fillCircle(16, 16, 7);
+      g.fillStyle(0xff4444); g.fillCircle(13, 14, 2); g.fillCircle(19, 14, 2);
+    }},
+    // 흡혈 늑대 — 회색 사각형 + 귀
+    { key: 'monster_wolf', draw(g) {
+      g.fillStyle(0x7f8c8d); g.fillRect(6, 12, 20, 16);
+      g.fillTriangle(8, 12, 12, 2, 16, 12);   // 왼쪽 귀
+      g.fillTriangle(16, 12, 20, 2, 24, 12);  // 오른쪽 귀
+      g.fillStyle(0xff2200); g.fillCircle(11, 17, 2.5); g.fillCircle(21, 17, 2.5);
+    }},
+    // 혈족 전사 — 진한 빨강 갑옷형
+    { key: 'monster_bloodkin', draw(g) {
+      g.fillStyle(0xc0392b); g.fillRect(6, 8, 20, 20);
+      g.fillStyle(0x7b241c); g.fillRect(6, 8, 20, 6);   // 투구
+      g.fillStyle(0xff0000); g.fillCircle(12, 14, 3); g.fillCircle(20, 14, 3);
+      g.fillStyle(0x888888); g.fillRect(2, 12, 4, 12);  // 방패
+    }},
+    // 붉은 독거미 — 갈적색 몸통 + 다리 8개
+    { key: 'monster_spider', draw(g) {
+      g.fillStyle(0x922b21);
+      g.fillCircle(16, 20, 8);   // 배
+      g.fillCircle(16, 11, 6);   // 머리
+      g.fillStyle(0x641e16);
+      // 다리 4쌍
+      g.fillRect(2,  12, 8, 2); g.fillRect(22, 12, 8, 2);
+      g.fillRect(2,  16, 8, 2); g.fillRect(22, 16, 8, 2);
+      g.fillRect(3,  20, 7, 2); g.fillRect(22, 20, 7, 2);
+      g.fillRect(4,  24, 6, 2); g.fillRect(22, 24, 6, 2);
+      g.fillStyle(0xff4444); g.fillCircle(13, 10, 1.5); g.fillCircle(19, 10, 1.5);
+    }},
+    // 혈석 골렘 — 회갈색 육중한 사각형
+    { key: 'monster_golem', draw(g) {
+      g.fillStyle(0x6e2c0e); g.fillRect(4, 4, 24, 26);   // 몸통
+      g.fillStyle(0x4a1a08); g.fillRect(4, 4, 24, 8);    // 머리 영역
+      g.fillStyle(0xff6600); g.fillCircle(12, 9, 3); g.fillCircle(20, 9, 3);  // 눈 (용암)
+      g.fillStyle(0x3d1506); g.fillRect(0, 14, 4, 10);   // 왼팔
+      g.fillRect(28, 14, 4, 10);  // 오른팔
+      // 균열 장식
+      g.lineStyle(1, 0xff4400, 0.8);
+      g.lineBetween(10, 14, 14, 22); g.lineBetween(18, 14, 22, 22);
+    }},
+    // 어둠 기사 — 검보라 갑옷, 날카로운 실루엣
+    { key: 'monster_shadowknight', draw(g) {
+      g.fillStyle(0x1a0030); g.fillRect(7, 8, 18, 20);   // 갑옷
+      g.fillStyle(0x2e004f); g.fillRect(7, 8, 18, 7);    // 투구
+      g.fillTriangle(7, 8, 7, 2, 13, 8);   // 투구 뿔 왼
+      g.fillTriangle(25, 8, 19, 8, 25, 2); // 투구 뿔 오
+      g.fillStyle(0xcc00ff); g.fillCircle(12, 13, 2.5); g.fillCircle(20, 13, 2.5); // 눈
+      g.fillStyle(0x0d001a); g.fillRect(2, 12, 5, 14);   // 방패
+      g.fillStyle(0x6600aa); g.fillRect(27, 10, 3, 18);  // 검
+    }},
+    ].forEach(({ key, draw }) => {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
-      g.fillStyle(color);
-      if (shape === 'circle') {
-        g.fillCircle(16, 18, 14);
-        // 눈
-        g.fillStyle(0xffffff);
-        g.fillCircle(11, 15, 3);
-        g.fillCircle(21, 15, 3);
-        g.fillStyle(0x000000);
-        g.fillCircle(12, 15, 1.5);
-        g.fillCircle(22, 15, 1.5);
-      } else if (shape === 'bat') {
-        // 날개
-        g.fillStyle(color);
-        g.fillEllipse(8, 16, 14, 8);
-        g.fillEllipse(24, 16, 14, 8);
-        // 몸
-        g.fillCircle(16, 16, 7);
-      } else {
-        g.fillRect(6, 8, 20, 20);
-        // 눈 (붉은색)
-        g.fillStyle(0xff0000);
-        g.fillCircle(12, 14, 3);
-        g.fillCircle(20, 14, 3);
-      }
+      draw(g);
       g.generateTexture(key, 32, 32);
       g.destroy();
     });

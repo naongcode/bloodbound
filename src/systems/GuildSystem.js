@@ -40,7 +40,7 @@ export default class GuildSystem {
       contribution: 0,
       members:      [{ name: player.jobData?.name ?? '???', role: '길드마스터', joinedAt: Date.now() }],
       warehouse:    new Array(30).fill(null),
-      activeBuff:   null,
+      buffLevels:   {},   // { buffKey: 1|2|3 }
       dailyQuests:  [],
       questProgress:{},
       lastQuestDate:'',
@@ -62,7 +62,7 @@ export default class GuildSystem {
       contribution: 0,
       members:      [{ name: '나', role: '신입', joinedAt: Date.now() }],
       warehouse:    new Array(30).fill(null),
-      activeBuff:   null,
+      buffLevels:   {},
       dailyQuests:  [],
       questProgress:{},
       lastQuestDate:'',
@@ -114,38 +114,43 @@ export default class GuildSystem {
   // 버프 포함 최종 혜택
   getEffectivePerks() {
     const base = this.getPerks();
-    const buff = this.guild?.activeBuff;
-    if (!buff || buff.expiresAt < Date.now()) {
-      if (buff) { this.guild.activeBuff = null; this._save(); }
-      return base;
-    }
-    const e = buff.effect ?? {};
-    return {
-      goldBonus:    (base.goldBonus  || 0) + (e.goldBonus  || 0),
-      dropBonus:    (base.dropBonus  || 0) + (e.dropBonus  || 0),
-      xpBonus:      (base.xpBonus   || 0) + (e.xpBonus    || 0),
-      speedBonus:   (base.speedBonus || 0) + (e.speedBonus || 0),
-      attackBonus:  e.attackBonus  ?? 0,
-      defenseBonus: e.defenseBonus ?? 0,
-      skillCdBonus: e.skillCdBonus ?? 0,
-    };
+    const buffLevels = this.guild?.buffLevels ?? {};
+    const totals = { ...base, attackBonus: 0, defenseBonus: 0, skillCdBonus: 0 };
+
+    GUILD_BUFFS.forEach(buff => {
+      const lv = buffLevels[buff.key] ?? 0;
+      if (lv === 0) return;
+      const e = buff.levels[lv - 1].effect;
+      Object.entries(e).forEach(([k, v]) => {
+        totals[k] = (totals[k] || 0) + v;
+      });
+    });
+    return totals;
   }
 
-  // ── 길드 버프 발동 ───────────────────────────
-  activateBuff(buffKey, guildFund) {
+  // 버프 레벨 조회
+  getBuffLevel(buffKey) {
+    return this.guild?.buffLevels?.[buffKey] ?? 0;
+  }
+
+  // ── 길드 버프 강화 (레벨 1→2→3) ────────────
+  activateBuff(buffKey) {
     const buff = GUILD_BUFFS.find(b => b.key === buffKey);
     if (!buff) return { ok: false, reason: '존재하지 않는 버프' };
     if (!this.guild) return { ok: false, reason: '길드 없음' };
-    if (this.guild.fund < buff.cost) return { ok: false, reason: `길드 자금 부족 (${buff.cost.toLocaleString()} G 필요)` };
 
-    this.guild.fund -= buff.cost;
-    this.guild.activeBuff = {
-      ...buff,
-      activatedAt: Date.now(),
-      expiresAt:   Date.now() + buff.duration,
-    };
+    const curLv = this.guild.buffLevels?.[buffKey] ?? 0;
+    if (curLv >= 3) return { ok: false, reason: '이미 최대 레벨입니다.' };
+
+    const nextLvData = buff.levels[curLv]; // curLv=0 → levels[0], 1 → levels[1], ...
+    if (this.guild.fund < nextLvData.cost)
+      return { ok: false, reason: `길드 자금 부족 (${nextLvData.cost.toLocaleString()} G 필요)` };
+
+    this.guild.fund -= nextLvData.cost;
+    if (!this.guild.buffLevels) this.guild.buffLevels = {};
+    this.guild.buffLevels[buffKey] = curLv + 1;
     this._save();
-    return { ok: true, buff };
+    return { ok: true, newLevel: curLv + 1 };
   }
 
   // ── 길드 자금 기부 ───────────────────────────

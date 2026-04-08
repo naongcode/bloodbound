@@ -152,7 +152,10 @@ export default class GameScene extends Phaser.Scene {
     const spawnList = [
       { key: 'blood_slime',    count: 15 },
       { key: 'blood_bat',      count: 10 },
-      { key: 'bloodfang_wolf', count: 5, minDist: 600 },
+      { key: 'bloodfang_wolf', count: 5,  minDist: 600 },
+      { key: 'crimson_spider', count: 5,  minDist: 500 },
+      { key: 'blood_golem',    count: 3,  minDist: 800, outerZone: true },
+      { key: 'shadow_knight',  count: 3,  minDist: 800, outerZone: true },
     ];
 
     spawnList.forEach(({ key, count, minDist }) => {
@@ -169,10 +172,22 @@ export default class GameScene extends Phaser.Scene {
     const minDist = opts.minDist ?? 300;
     // 플레이어 근처 제외한 랜덤 위치
     let x, y;
-    do {
-      x = Phaser.Math.Between(100, MAP_W - 100);
-      y = Phaser.Math.Between(100, MAP_H - 100);
-    } while (Phaser.Math.Distance.Between(x, y, MAP_W / 2, MAP_H / 2) < minDist);
+    if (opts.outerZone) {
+      // 맵 외곽 400px 이내 영역에서만 스폰
+      const margin = 400;
+      do {
+        const side = Phaser.Math.Between(0, 3);
+        if (side === 0)      { x = Phaser.Math.Between(100, margin);           y = Phaser.Math.Between(100, MAP_H - 100); }
+        else if (side === 1) { x = Phaser.Math.Between(MAP_W - margin, MAP_W - 100); y = Phaser.Math.Between(100, MAP_H - 100); }
+        else if (side === 2) { x = Phaser.Math.Between(100, MAP_W - 100);     y = Phaser.Math.Between(100, margin); }
+        else                 { x = Phaser.Math.Between(100, MAP_W - 100);     y = Phaser.Math.Between(MAP_H - margin, MAP_H - 100); }
+      } while (this.player && Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < minDist);
+    } else {
+      do {
+        x = Phaser.Math.Between(100, MAP_W - 100);
+        y = Phaser.Math.Between(100, MAP_H - 100);
+      } while (Phaser.Math.Distance.Between(x, y, MAP_W / 2, MAP_H / 2) < minDist);
+    }
 
     const monster = new Monster(this, x, y, data);
     monster.target = this.player;
@@ -208,9 +223,12 @@ export default class GameScene extends Phaser.Scene {
     for (let i = 0; i < toSpawn; i++) {
       const roll = Math.random();
       let key, opts;
-      if      (roll < 0.33) { key = 'blood_slime';    opts = {}; }
-      else if (roll < 0.66) { key = 'blood_bat';      opts = {}; }
-      else if (roll < 0.90) { key = 'bloodfang_wolf'; opts = { minDist: 500 }; }
+      if      (roll < 0.25) { key = 'blood_slime';    opts = {}; }
+      else if (roll < 0.45) { key = 'blood_bat';      opts = {}; }
+      else if (roll < 0.60) { key = 'crimson_spider'; opts = { minDist: 400 }; }
+      else if (roll < 0.75) { key = 'bloodfang_wolf'; opts = { minDist: 500 }; }
+      else if (roll < 0.87) { key = 'blood_golem';    opts = { minDist: 700, outerZone: true }; }
+      else if (roll < 0.95) { key = 'shadow_knight';  opts = { minDist: 700, outerZone: true }; }
       else                  { key = 'blood_kin';      opts = { minDist: 700, noElite: true }; }
       this.spawnMonster(key, opts);
     }
@@ -335,22 +353,23 @@ export default class GameScene extends Phaser.Scene {
 
   // warrior — 돌진
   skillCharge(player, targetX, targetY) {
-    const angle  = Phaser.Math.Angle.Between(player.x, player.y, targetX, targetY);
-    const fromX  = player.x, fromY = player.y;
-    const toX    = Phaser.Math.Clamp(fromX + Math.cos(angle) * 200, 60, MAP_W - 60);
-    const toY    = Phaser.Math.Clamp(fromY + Math.sin(angle) * 200, 60, MAP_H - 60);
+    const { dashDistance, dashDuration, hitRadius, damageMultiplier } = player.skillDef.params;
+    const angle = Phaser.Math.Angle.Between(player.x, player.y, targetX, targetY);
+    const fromX = player.x, fromY = player.y;
+    const toX   = Phaser.Math.Clamp(fromX + Math.cos(angle) * dashDistance, 60, MAP_W - 60);
+    const toY   = Phaser.Math.Clamp(fromY + Math.sin(angle) * dashDistance, 60, MAP_H - 60);
 
     player.isDodging = true;
     player.setAlpha(0.65);
 
     this.tweens.add({
-      targets: player, x: toX, y: toY, duration: 180, ease: 'Power2',
+      targets: player, x: toX, y: toY, duration: dashDuration, ease: 'Power2',
       onUpdate: () => {
         const r = this.combatSystem.calcPhysicalDamage(player, { stats: { defense: 0 }, level: 1 });
         this.monsters.getChildren().forEach(m => {
           if (!m.isAlive) return;
-          if (Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y) < 45) {
-            m.takeDamage(r.damage * 1.5);
+          if (Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y) < hitRadius) {
+            m.takeDamage(r.damage * damageMultiplier);
           }
         });
       },
@@ -359,80 +378,84 @@ export default class GameScene extends Phaser.Scene {
 
     // 궤적 이펙트
     const g = this.add.graphics().setDepth(18);
-    g.lineStyle(4, 0x3498db, 0.7);
+    g.lineStyle(4, player.skillDef.color, 0.7);
     g.beginPath(); g.moveTo(fromX, fromY); g.lineTo(toX, toY); g.strokePath();
     this.tweens.add({ targets: g, alpha: 0, duration: 280, onComplete: () => g.destroy() });
   }
 
-  // archer — 연사 (5발 부채꼴)
+  // archer — 연사 (부채꼴 다발)
   skillBarrage(player, x, y, targetX, targetY) {
+    const { projectileCount, spreadAngle, damageMultiplier, maxRange } = player.skillDef.params;
     const base   = Phaser.Math.Angle.Between(x, y, targetX, targetY);
     const result = this.combatSystem.calcPhysicalDamage(player, { stats: { defense: 0 }, level: 1 });
-    for (let i = -2; i <= 2; i++) {
-      const a  = base + i * 0.22;
+    const half   = Math.floor(projectileCount / 2);
+    for (let i = -half; i <= half; i++) {
+      const a  = base + i * spreadAngle;
       const tx = x + Math.cos(a) * 200;
       const ty = y + Math.sin(a) * 200;
       this._bullets.push(new Projectile(this, x, y, tx, ty, {
-        damage:   result.damage * 0.7,
+        damage:   result.damage * damageMultiplier,
         isCrit:   result.isCrit,
-        maxRange: 420,
-        color:    0x2ecc71,
+        maxRange,
+        color:    player.skillDef.color,
       }));
     }
   }
 
   // mage — 파이어볼 (느리고 큰 투사체, 적중 시 폭발)
   skillFireball(player, x, y, targetX, targetY) {
+    const { damageMultiplier, splashMultiplier, splashRadius, speed, maxRange, sizeScale } = player.skillDef.params;
     const result = this.combatSystem.calcPhysicalDamage(player, { stats: { defense: 0 }, level: 1 });
-    const dmg    = result.damage * 2.5;
+    const dmg    = result.damage * damageMultiplier;
     this._bullets.push(new Projectile(this, x, y, targetX, targetY, {
-      damage:    dmg,
-      speed:     260,
-      maxRange:  520,
-      color:     0xff4500,
-      sizeScale: 2.2,
+      damage: dmg,
+      speed, maxRange, sizeScale,
+      color:  player.skillDef.color,
       onExplode: (ex, ey) => {
         this.monsters.getChildren().forEach(m => {
           if (!m.isAlive) return;
-          if (Phaser.Math.Distance.Between(ex, ey, m.x, m.y) < 80) m.takeDamage(dmg * 0.6);
+          if (Phaser.Math.Distance.Between(ex, ey, m.x, m.y) < splashRadius) {
+            m.takeDamage(dmg * splashMultiplier);
+          }
         });
         this.showExplosion(ex, ey);
       },
     }));
   }
 
-  // priest — 신성한 빛 (HP 30% 회복)
+  // priest — 신성한 빛 (HP 회복)
   skillHolyLight(player) {
-    const heal = Math.floor(player.maxHp * 0.3);
+    const { healPercent } = player.skillDef.params;
+    const heal = Math.floor(player.maxHp * healPercent);
     player.hp  = Math.min(player.maxHp, player.hp + heal);
     this.events.emit('statsChanged', player);
     this.showFloatText(player.x, player.y - 45, `+${heal} HP`, '#f1c40f', '18px');
 
     const g = this.add.graphics().setDepth(18).setPosition(player.x, player.y);
-    g.fillStyle(0xf1c40f, 0.28);
+    g.fillStyle(player.skillDef.color, 0.28);
     g.fillCircle(0, 0, 70);
     this.tweens.add({ targets: g, alpha: 0, scaleX: 1.5, scaleY: 1.5, duration: 600, onComplete: () => g.destroy() });
   }
 
-  // alchemist — 독 구름 (3초, 0.5초마다 피해)
+  // alchemist — 독 구름
   skillPoisonCloud(player, x, y) {
-    const radius = 100;
+    const { radius, tickInterval, ticks, intMultiplier, minDamage } = player.skillDef.params;
     const g = this.add.graphics().setDepth(8).setPosition(x, y);
-    g.fillStyle(0x27ae60, 0.2);  g.fillCircle(0, 0, radius);
-    g.lineStyle(2, 0x27ae60, 0.5); g.strokeCircle(0, 0, radius);
+    g.fillStyle(player.skillDef.color, 0.2);  g.fillCircle(0, 0, radius);
+    g.lineStyle(2, player.skillDef.color, 0.5); g.strokeCircle(0, 0, radius);
 
     this.time.addEvent({
-      delay: 500, repeat: 5,
+      delay: tickInterval, repeat: ticks - 1,
       callback: () => {
         this.monsters.getChildren().forEach(m => {
           if (!m.isAlive) return;
           if (Phaser.Math.Distance.Between(x, y, m.x, m.y) < radius) {
-            m.takeDamage(Math.max(5, player.totalStats.INT * 0.5));
+            m.takeDamage(Math.max(minDamage, player.totalStats.INT * intMultiplier));
           }
         });
       },
     });
-    this.tweens.add({ targets: g, alpha: 0, duration: 3000, onComplete: () => g.destroy() });
+    this.tweens.add({ targets: g, alpha: 0, duration: tickInterval * ticks, onComplete: () => g.destroy() });
   }
 
   // 폭발 이펙트 (fireball용)
