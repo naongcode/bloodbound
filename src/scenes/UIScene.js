@@ -36,7 +36,7 @@ export default class UIScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       this._uiActive = false;
       // 카메라를 즉시 숨겨 shutdown 프레임에서 렌더링 오류 방지
-      this.cameras.main.setVisible(false);
+      this.cameras?.main?.setVisible(false);
       this.gameScene?.events.off('statsChanged',     this._cbStats);
       this.gameScene?.events.off('levelUp',          this._cbLevel);
       this.gameScene?.events.off('inventoryChanged', this._cbInv);
