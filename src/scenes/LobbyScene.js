@@ -325,6 +325,9 @@ export default class LobbyScene extends Phaser.Scene {
       Network.off('roomJoined',  this._onRoomJoined);
       Network.off('joinError',   this._onJoinError);
       Network.off('chatMsg',     this._onChatMsg);
+      // DOM 요소 정리
+      const el = document.getElementById('nameInput');
+      if (el) el.remove();
     });
   }
 

@@ -156,6 +156,7 @@ export default class DungeonScene extends Phaser.Scene {
       }
       // 2) 클라우드 최신 데이터로 덮어쓰기 (비동기)
       SaveSystem.loadChar(this._charId).then(saveData => {
+        if (!this.scene.isActive('DungeonScene')) return;
         if (saveData) SaveSystem.apply(this.player, saveData, this.inventorySystem);
       }).catch(e => console.warn('[DungeonScene] 세이브 로드 실패:', e));
     } else {
@@ -757,6 +758,7 @@ export default class DungeonScene extends Phaser.Scene {
 
   // ── 메인 업데이트 ─────────────────────────────────────────
   update(time, delta) {
+    if (!this.player) return;
     this.player.update(time, delta);
     this.monsters.getChildren().forEach(m => {
       if (m.active && m.update) m.update(time, delta);
@@ -800,10 +802,11 @@ export default class DungeonScene extends Phaser.Scene {
     this._remotes = new Map();
 
     // 내 상태 60ms마다 송신
-    this.time.addEvent({
+    this._netTimer = this.time.addEvent({
       delay: 60, loop: true,
       callback: () => {
         const p = this.player;
+        if (!p) return;
         Network.sendPlayerState({
           x: Math.round(p.x), y: Math.round(p.y),
           hp: Math.round(p.hp), maxHp: p.maxHp,
@@ -813,29 +816,44 @@ export default class DungeonScene extends Phaser.Scene {
     });
 
     // 다른 플레이어 상태 수신
-    Network.on('playerStateUpdate', ({ id, x, y, hp, maxHp }) => {
-      this._updateRemote(id, x, y, hp, maxHp);
-    });
-
-    // 웨이브 동기화 (비호스트 클라이언트)
-    Network.on('waveSync', ({ waveIdx }) => {
+    this._cbStateUpdate   = ({ id, x, y, hp, maxHp }) => this._updateRemote(id, x, y, hp, maxHp);
+    this._cbWaveSync      = ({ waveIdx }) => {
       this.showFloatText(DW / 2, DH / 2 - 40, '웨이브 클리어!', '#2ecc71', '22px');
-      this.time.delayedCall(3000, () => this.startWave(waveIdx));
-    });
-
-    Network.on('dungeonClearedSync', () => {
-      this.onDungeonClear();
-    });
-
-    Network.on('playerLeft', ({ id }) => {
+      this.time.delayedCall(3000, () => {
+        if (!this.scene.isActive('DungeonScene')) return;
+        this.startWave(waveIdx);
+      });
+    };
+    this._cbDungeonCleared = () => this.onDungeonClear();
+    this._cbPlayerLeft    = ({ id }) => {
       const r = this._remotes.get(id);
       if (r) { r.gfx?.destroy(); r.nameTxt?.destroy(); r.hpBg?.destroy(); r.hpBr?.destroy(); }
       this._remotes.delete(id);
+    };
+
+    Network.on('playerStateUpdate', this._cbStateUpdate);
+    Network.on('waveSync',          this._cbWaveSync);
+    Network.on('dungeonClearedSync',this._cbDungeonCleared);
+    Network.on('playerLeft',        this._cbPlayerLeft);
+
+    // shutdown 시 Network 리스너 정리
+    this.events.once('shutdown', () => {
+      Network.off('playerStateUpdate', this._cbStateUpdate);
+      Network.off('waveSync',          this._cbWaveSync);
+      Network.off('dungeonClearedSync',this._cbDungeonCleared);
+      Network.off('playerLeft',        this._cbPlayerLeft);
+      this._netTimer?.remove();
+      this._partyTimer?.remove();
+      this._remotes?.forEach(r => {
+        r.gfx?.destroy(); r.nameTxt?.destroy();
+        r.hpBg?.destroy(); r.hpBr?.destroy();
+      });
+      this._remotes?.clear();
     });
 
     // 파티 HP 바
     this._buildPartyHUD();
-    this.time.addEvent({ delay: 300, loop: true, callback: () => this._refreshPartyHUD() });
+    this._partyTimer = this.time.addEvent({ delay: 300, loop: true, callback: () => this._refreshPartyHUD() });
   }
 
   _updateRemote(id, x, y, hp, maxHp) {

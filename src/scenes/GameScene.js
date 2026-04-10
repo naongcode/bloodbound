@@ -46,6 +46,7 @@ export default class GameScene extends Phaser.Scene {
 
       // 2) 클라우드 최신 데이터로 덮어쓰기 (비동기)
       SaveSystem.loadChar(this._charId).then(saveData => {
+        if (!this.scene.isActive('GameScene')) return;
         if (saveData) {
           SaveSystem.apply(this.player, saveData, this.inventorySystem);
           this.events.emit('statsChanged', this.player);
@@ -729,6 +730,7 @@ export default class GameScene extends Phaser.Scene {
       delay: 60, loop: true,
       callback: () => {
         const p = this.player;
+        if (!p) return;
         Network.sendPlayerState({
           x: Math.round(p.x), y: Math.round(p.y),
           hp: Math.round(p.hp), maxHp: p.maxHp,
@@ -738,12 +740,10 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // 다른 플레이어 상태 수신
-    Network.on('playerStateUpdate', ({ id, x, y, hp, maxHp, level }) => {
+    this._cbStateUpdate = ({ id, x, y, hp, maxHp, level }) => {
       this._updateRemotePlayer(id, x, y, hp, maxHp, level);
-    });
-
-    // 플레이어 퇴장 시 아바타 제거
-    Network.on('playerLeft', ({ id }) => {
+    };
+    this._cbPlayerLeft = ({ id }) => {
       const remote = this._remotes.get(id);
       if (remote) {
         remote.gfx?.destroy();
@@ -752,12 +752,28 @@ export default class GameScene extends Phaser.Scene {
         remote.hpBar?.destroy();
         this._remotes.delete(id);
       }
+    };
+    Network.on('playerStateUpdate', this._cbStateUpdate);
+    Network.on('playerLeft',        this._cbPlayerLeft);
+
+    // shutdown 시 Network 리스너 정리
+    this.events.once('shutdown', () => {
+      Network.off('playerStateUpdate', this._cbStateUpdate);
+      Network.off('playerLeft',        this._cbPlayerLeft);
+      this._netTimer?.remove();
+      this._partyTimer?.remove();
+      // 원격 플레이어 아바타 정리
+      this._remotes?.forEach(r => {
+        r.gfx?.destroy(); r.nameText?.destroy();
+        r.hpBg?.destroy(); r.hpBar?.destroy();
+      });
+      this._remotes?.clear();
     });
 
     // 파티 HP 바 UI (좌측 하단)
     this._buildPartyHUD();
-    // 30ms마다 파티 HUD 갱신
-    this.time.addEvent({ delay: 300, loop: true, callback: () => this._refreshPartyHUD() });
+    // 300ms마다 파티 HUD 갱신
+    this._partyTimer = this.time.addEvent({ delay: 300, loop: true, callback: () => this._refreshPartyHUD() });
   }
 
   _updateRemotePlayer(id, x, y, hp, maxHp, _level) {

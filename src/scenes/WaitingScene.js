@@ -49,7 +49,8 @@ export default class WaitingScene extends Phaser.Scene {
     this._setupNetworkEvents();
 
     // 엔터 키 → 채팅
-    this.input.keyboard.on('keydown-ENTER', () => this._sendChat());
+    this._kbEnter = () => this._sendChat();
+    this.input.keyboard.on('keydown-ENTER', this._kbEnter);
 
     // 초기 플레이어 목록 렌더
     this._refreshPlayers();
@@ -334,6 +335,7 @@ export default class WaitingScene extends Phaser.Scene {
       Network.off('playerLeft',   this._onPlayerLeft);
       Network.off('chatMsg',      this._onChatMsg);
       Network.off('gameStarted',  this._onGameStarted);
+      this.input?.keyboard?.off('keydown-ENTER', this._kbEnter);
     });
   }
 }

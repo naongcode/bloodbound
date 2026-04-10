@@ -41,19 +41,31 @@ export default class UIScene extends Phaser.Scene {
       this.gameScene?.events.off('levelUp',          this._cbLevel);
       this.gameScene?.events.off('inventoryChanged', this._cbInv);
       this.gameScene?.events.off('equipmentChanged', this._cbEquip);
+      // 키보드 리스너 제거 (중복 등록 방지)
+      this.input?.keyboard?.off('keydown-I',     this._kbI);
+      this.input?.keyboard?.off('keydown-C',     this._kbC);
+      this.input?.keyboard?.off('keydown-ESC',   this._kbESC);
+      this.input?.keyboard?.off('keydown-ONE',   this._kb1);
+      this.input?.keyboard?.off('keydown-TWO',   this._kb2);
+      this.input?.keyboard?.off('keydown-THREE', this._kb3);
+      this.input?.keyboard?.off('keydown-FOUR',  this._kb4);
     });
 
-    // I 키 → 인벤토리 토글
-    this.input.keyboard.on('keydown-I', () => this.toggleInventory());
-    // C 키 → 캐릭터 창 토글
-    this.input.keyboard.on('keydown-C', () => this.toggleCharPanel());
-    // ESC 키 → 설정 메뉴 토글
-    this.input.keyboard.on('keydown-ESC', () => this.toggleSettings());
-    // 1~4 키 → 포션 퀵슬롯
-    this.input.keyboard.on('keydown-ONE',   () => this._useQuickPotion(0));
-    this.input.keyboard.on('keydown-TWO',   () => this._useQuickPotion(1));
-    this.input.keyboard.on('keydown-THREE', () => this._useQuickPotion(2));
-    this.input.keyboard.on('keydown-FOUR',  () => this._useQuickPotion(3));
+    // 키 핸들러 (참조 보관 → shutdown 시 제거)
+    this._kbI   = () => { if (this._uiActive) this.toggleInventory(); };
+    this._kbC   = () => { if (this._uiActive) this.toggleCharPanel(); };
+    this._kbESC = () => { if (this._uiActive) this.toggleSettings(); };
+    this._kb1   = () => { if (this._uiActive) this._useQuickPotion(0); };
+    this._kb2   = () => { if (this._uiActive) this._useQuickPotion(1); };
+    this._kb3   = () => { if (this._uiActive) this._useQuickPotion(2); };
+    this._kb4   = () => { if (this._uiActive) this._useQuickPotion(3); };
+    this.input.keyboard.on('keydown-I',     this._kbI);
+    this.input.keyboard.on('keydown-C',     this._kbC);
+    this.input.keyboard.on('keydown-ESC',   this._kbESC);
+    this.input.keyboard.on('keydown-ONE',   this._kb1);
+    this.input.keyboard.on('keydown-TWO',   this._kb2);
+    this.input.keyboard.on('keydown-THREE', this._kb3);
+    this.input.keyboard.on('keydown-FOUR',  this._kb4);
 
     this.inventoryOpen = false;
     this.charPanelOpen = false;
