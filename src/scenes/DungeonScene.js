@@ -223,10 +223,12 @@ export default class DungeonScene extends Phaser.Scene {
 
   /** 스폰 데이터 배열로 실제 몬스터 생성 */
   _spawnFromList(list, isBossWave = false) {
+    const isNetworkControlled = this._isMulti && !Network.isHost();
     list.forEach(entry => {
       const m = this.spawnMonsterAt(entry.key, entry.x, entry.y);
       if (!m) return;
       m.netId = entry.netId;
+      if (isNetworkControlled) m._networkControlled = true; // 비호스트: AI 이동 차단
       this._monsterMap.set(entry.netId, m);
       if (entry.boss || isBossWave) this.makeBoss(m);
     });
@@ -438,11 +440,13 @@ export default class DungeonScene extends Phaser.Scene {
     this.events.on('monsterDied', ({ monster }) => {
       if (!monster.isAlive) return;
       monster.isAlive = false;
-      // 멀티: 다른 클라이언트에도 사망 브로드캐스트
+      // 멀티: 사망 브로드캐스트 + 레벨 비례 보상
       if (this._isMulti && monster.netId !== undefined) {
         Network.sendMonsterDied(monster.netId);
+        this.handleMonsterDeath(monster, this._rewardShare());
+      } else {
+        this.handleMonsterDeath(monster);
       }
-      this.handleMonsterDeath(monster);
       // 보스 HP바 갱신
       if (monster === this._bossTarget) this._bossTarget = null;
       if (monster.isBoss) {
@@ -668,13 +672,22 @@ export default class DungeonScene extends Phaser.Scene {
   }
 
   // ── 몬스터 사망 처리 ─────────────────────────────────────
-  handleMonsterDeath(monster) {
+  /** 레벨 비례 보상 배율 */
+  _rewardShare() {
+    const players = Network.room?.players ?? [];
+    if (players.length <= 1) return 1.0;
+    const myLevel    = this.player?.level ?? 1;
+    const totalLevel = players.reduce((s, p) => s + (p.level || 1), 0);
+    return myLevel / totalLevel;
+  }
+
+  handleMonsterDeath(monster, rewardScale = 1.0) {
     const data = monster.monsterData;
 
-    this.levelSystem.gainXP(this.player, { base: data.xpReward, sourceLevel: data.level });
+    this.levelSystem.gainXP(this.player, { base: Math.round(data.xpReward * rewardScale), sourceLevel: data.level });
 
     const gold = Phaser.Math.Between(data.goldReward.min, data.goldReward.max);
-    this.player.inventory.gold += Math.floor(gold * 1.5);
+    this.player.inventory.gold += Math.floor(gold * 1.5 * rewardScale);
 
     if (data.dropTable) {
       data.dropTable.forEach(drop => {
@@ -902,12 +915,12 @@ export default class DungeonScene extends Phaser.Scene {
       if (!this.scene.isActive('DungeonScene')) return;
       this._receiveWaveSpawn(waveIdx, monsters);
     };
-    // 몬스터 사망 동기화 (다른 클라이언트가 킬한 경우)
+    // 몬스터 사망 동기화 (다른 클라이언트가 킬한 경우 — 레벨 비례 보상 지급)
     this._cbNetMonsterDied = ({ netId }) => {
       const m = this._monsterMap?.get(netId);
       if (!m || !m.isAlive) return;
       m.isAlive = false;
-      this.handleMonsterDeath(m);
+      this.handleMonsterDeath(m, this._rewardShare());
       if (m === this._bossTarget) this._bossTarget = null;
       if (m.isBoss) {
         this.sound.stopByKey('bgm_dungeon');
@@ -915,16 +928,13 @@ export default class DungeonScene extends Phaser.Scene {
       }
       this.time.delayedCall(500, () => this.checkWaveCleared());
     };
-    // 호스트가 보내는 몬스터 위치/HP 동기화 (비호스트 수신)
+    // 호스트가 보내는 몬스터 위치 동기화 (비호스트 수신, HP는 로컬 관리)
     this._cbMonsterSync = ({ states }) => {
       if (Network.isHost()) return;
-      states.forEach(({ netId, x, y, hp }) => {
+      states.forEach(({ netId, x, y }) => {
         const m = this._monsterMap?.get(netId);
         if (!m || !m.isAlive) return;
-        // 부드러운 위치 보간
-        m.x = Phaser.Math.Linear(m.x, x, 0.25);
-        m.y = Phaser.Math.Linear(m.y, y, 0.25);
-        m.hp = hp;
+        m.body?.reset(x, y); // 물리 바디 포함 위치 직접 설정
       });
     };
     this._cbDungeonCleared = () => this.onDungeonClear();
@@ -945,7 +955,7 @@ export default class DungeonScene extends Phaser.Scene {
           if (!this._monsterMap?.size) return;
           const states = [];
           this._monsterMap.forEach((m, netId) => {
-            if (m.isAlive) states.push({ netId, x: Math.round(m.x), y: Math.round(m.y), hp: Math.round(m.hp) });
+            if (m.isAlive) states.push({ netId, x: Math.round(m.x), y: Math.round(m.y) });
           });
           if (states.length) Network.sendMonsterSync(states);
         },

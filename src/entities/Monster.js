@@ -81,6 +81,12 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
 
   // ── AI 업데이트 ───────────────────────────────────────────
   updateAI(delta) {
+    // 네트워크 제어 몬스터(비호스트 측): 위치는 호스트 sync로 결정
+    if (this._networkControlled) {
+      this.setVelocity(0, 0);
+      return;
+    }
+
     if (!this.target || !this.target.isAlive) {
       this.setVelocity(0, 0);
       return;

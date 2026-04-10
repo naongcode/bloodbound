@@ -255,11 +255,12 @@ export default class GameScene extends Phaser.Scene {
     this.events.on('monsterDied', ({ monster }) => {
       if (!monster.isAlive) return;
       monster.isAlive = false;
-      // 멀티: 다른 클라이언트에 사망 브로드캐스트 (보상은 킬한 쪽만)
       if (this._isMulti && monster.netId !== undefined) {
         Network.sendMonsterDied(monster.netId);
+        handleMonsterDeath(this, monster, this._rewardShare()); // 레벨 비례 보상
+      } else {
+        handleMonsterDeath(this, monster); // 솔로: 100%
       }
-      handleMonsterDeath(this, monster);
       // 필드 보스 사망 콜백
       if (monster.isFieldBoss && monster.onBossDeath) {
         monster.onBossDeath();
@@ -784,26 +785,26 @@ export default class GameScene extends Phaser.Scene {
         const m = spawnMonster(this, entry.key, { x: entry.x, y: entry.y, skipElite: true });
         if (!m) return;
         m.netId = entry.netId;
+        m._networkControlled = true; // AI 이동 차단, 위치는 host sync로
         this._monsterMap.set(entry.netId, m);
         if (entry.isElite) applyElite(m);
       });
     };
-    // 비호스트: 호스트 몬스터 위치/HP 보간
+    // 비호스트: 호스트 몬스터 위치 직접 반영 (HP는 로컬 관리 — 데미지 동작 보장)
     this._cbFieldMonsterSync = ({ states }) => {
       if (Network.isHost()) return;
-      states.forEach(({ netId, x, y, hp }) => {
+      states.forEach(({ netId, x, y }) => {
         const m = this._monsterMap?.get(netId);
         if (!m || !m.isAlive) return;
-        m.x = Phaser.Math.Linear(m.x, x, 0.25);
-        m.y = Phaser.Math.Linear(m.y, y, 0.25);
-        m.hp = hp;
+        m.body?.reset(x, y); // 물리 바디 포함 위치 즉시 설정 (velocity 초기화)
       });
     };
-    // 모든 클라이언트: 다른 클라이언트가 킬한 몬스터 처리 (보상 없이 제거만)
+    // 모든 클라이언트: 다른 클라이언트가 킬한 몬스터 → 내 레벨 비례 보상 지급 후 제거
     this._cbNetMonsterDied = ({ netId }) => {
       const m = this._monsterMap?.get(netId);
       if (!m || !m.isAlive) return;
       m.isAlive = false;
+      handleMonsterDeath(this, m, this._rewardShare());
       m.destroy();
       this._monsterMap.delete(netId);
     };
@@ -820,7 +821,7 @@ export default class GameScene extends Phaser.Scene {
           if (!this._monsterMap.size) return;
           const states = [];
           this._monsterMap.forEach((m, netId) => {
-            if (m.isAlive) states.push({ netId, x: Math.round(m.x), y: Math.round(m.y), hp: Math.round(m.hp) });
+            if (m.isAlive) states.push({ netId, x: Math.round(m.x), y: Math.round(m.y) });
           });
           if (states.length) Network.sendFieldMonsterSync(states);
         },
@@ -849,6 +850,15 @@ export default class GameScene extends Phaser.Scene {
     this._buildPartyHUD();
     // 300ms마다 파티 HUD 갱신
     this._partyTimer = this.time.addEvent({ delay: 300, loop: true, callback: () => this._refreshPartyHUD() });
+  }
+
+  /** 레벨 비례 보상 배율 (멀티: 내 레벨 / 전체 레벨 합) */
+  _rewardShare() {
+    const players = Network.room?.players ?? [];
+    if (players.length <= 1) return 1.0;
+    const myLevel    = this.player?.level ?? 1;
+    const totalLevel = players.reduce((s, p) => s + (p.level || 1), 0);
+    return myLevel / totalLevel;
   }
 
   /** 스폰된 몬스터에 netId 할당 후 fieldMonsterSpawn 브로드캐스트 */

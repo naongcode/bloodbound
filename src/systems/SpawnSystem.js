@@ -93,7 +93,8 @@ export function respawnMonsters(scene) {
 }
 
 // ── 몬스터 사망 처리 ──────────────────────────────────────
-export function handleMonsterDeath(scene, monster) {
+// rewardScale: 멀티플레이 레벨 비례 보상 배율 (솔로=1.0, 멀티=레벨비례 0~1)
+export function handleMonsterDeath(scene, monster, rewardScale = 1.0) {
   const data = monster.monsterData;
   const bossMulti = monster.isFieldBoss ? 10 : 1;
 
@@ -101,16 +102,16 @@ export function handleMonsterDeath(scene, monster) {
   guildSystem.progressQuest('kill', data.key, 1);
   if (monster.isFieldBoss) guildSystem.progressQuest('boss', 'field_boss', 1);
 
-  // 경험치 지급 (길드 XP 보너스 포함)
+  // 경험치 지급 (길드 XP 보너스 + 레벨 비례 배율)
   const xpBonus = 1 + (guildSystem.hasGuild() ? guildSystem.getEffectivePerks().xpBonus : 0);
   scene.levelSystem.gainXP(scene.player, {
-    base: Math.round(data.xpReward * bossMulti * xpBonus),
+    base: Math.round(data.xpReward * bossMulti * xpBonus * rewardScale),
     sourceLevel: data.level
   });
 
-  // 골드 드롭 (길드 골드 보너스 포함)
+  // 골드 드롭 (길드 골드 보너스 + 레벨 비례 배율)
   const goldBonus = 1 + (guildSystem.hasGuild() ? guildSystem.getEffectivePerks().goldBonus : 0);
-  const gold = Math.round(Phaser.Math.Between(data.goldReward.min, data.goldReward.max) * bossMulti * goldBonus);
+  const gold = Math.round(Phaser.Math.Between(data.goldReward.min, data.goldReward.max) * bossMulti * goldBonus * rewardScale);
   scene.player.inventory.gold += gold;
   guildSystem.progressQuest('gold', null, gold);
 
