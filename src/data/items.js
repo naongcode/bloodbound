@@ -52,28 +52,28 @@ export const ITEM_DATA = {
   soldiers_sword: {
     key: 'soldiers_sword', name: '병사의 장검',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'uncommon',
-    texture: 'item_sword', requiredLevel: 10,
+    texture: 'item_sword', requiredLevel: 7,
     stats: { STR: 12, attackPower: 45 },
     description: '잘 단련된 병사용 장검.'
   },
   crusader_sword: {
     key: 'crusader_sword', name: '성전사의 대검',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'rare',
-    texture: 'item_sword', requiredLevel: 20,
+    texture: 'item_sword', requiredLevel: 15,
     stats: { STR: 25, attackPower: 90, VIT: 10 },
     description: '무거운 대검. 강인한 육체를 키워준다.'
   },
   bloodkin_blade: {
     key: 'bloodkin_blade', name: '혈족의 칼날',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'epic',
-    texture: 'item_sword', requiredLevel: 30,
+    texture: 'item_sword', requiredLevel: 23,
     stats: { STR: 45, attackPower: 160, critRate: 0.05 },
     description: '혈족 전사에게서 빼앗은 저주받은 검. 치명타율이 오른다.'
   },
   demon_blade: {
     key: 'demon_blade', name: '악마의 대검',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'legendary',
-    texture: 'item_sword', requiredLevel: 40,
+    texture: 'item_sword', requiredLevel: 30,
     stats: { STR: 70, attackPower: 250, critRate: 0.10, critDamage: 0.3 },
     description: '심연에서 단조된 대검. 치명타 시 적의 영혼을 흡수한다.'
   },
@@ -91,28 +91,28 @@ export const ITEM_DATA = {
   shadow_bow: {
     key: 'shadow_bow', name: '그림자 장궁',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'uncommon',
-    texture: 'item_bow', requiredLevel: 10,
+    texture: 'item_bow', requiredLevel: 7,
     stats: { AGI: 15, attackPower: 40, critRate: 0.04 },
     description: '어둠 속에서 빛나는 장궁.'
   },
   crimson_bow: {
     key: 'crimson_bow', name: '진홍의 대궁',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'rare',
-    texture: 'item_bow', requiredLevel: 20,
+    texture: 'item_bow', requiredLevel: 15,
     stats: { AGI: 28, attackPower: 85, critRate: 0.07 },
     description: '혈석으로 강화된 대궁. 명중 시 독이 오른다.'
   },
   void_bow: {
     key: 'void_bow', name: '공허의 활',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'epic',
-    texture: 'item_bow', requiredLevel: 30,
+    texture: 'item_bow', requiredLevel: 23,
     stats: { AGI: 50, attackPower: 150, critRate: 0.12, critDamage: 0.25 },
     description: '공허에서 깎아낸 활. 화살이 허공을 가른다.'
   },
   soul_bow: {
     key: 'soul_bow', name: '영혼 포식자',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'legendary',
-    texture: 'item_bow', requiredLevel: 40,
+    texture: 'item_bow', requiredLevel: 30,
     stats: { AGI: 80, attackPower: 230, critRate: 0.18, critDamage: 0.4 },
     description: '쓰러진 자의 영혼으로 만든 활. 치명타 시 MP가 회복된다.'
   },
@@ -130,28 +130,28 @@ export const ITEM_DATA = {
   blood_staff: {
     key: 'blood_staff', name: '혈관 지팡이',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'uncommon',
-    texture: 'item_staff', requiredLevel: 10,
+    texture: 'item_staff', requiredLevel: 7,
     stats: { INT: 20, attackPower: 38, WIS: 5 },
     description: '혈석이 박힌 지팡이. 마력이 고동친다.'
   },
   crimson_staff: {
     key: 'crimson_staff', name: '진홍 마법봉',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'rare',
-    texture: 'item_staff', requiredLevel: 20,
+    texture: 'item_staff', requiredLevel: 15,
     stats: { INT: 38, attackPower: 80, WIS: 10 },
     description: '고급 마법사가 사용하는 진홍빛 봉.'
   },
   abyss_wand: {
     key: 'abyss_wand', name: '심연의 완드',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'epic',
-    texture: 'item_staff', requiredLevel: 30,
+    texture: 'item_staff', requiredLevel: 23,
     stats: { INT: 65, attackPower: 140, WIS: 18, critDamage: 0.2 },
     description: '심연의 에너지가 응축된 완드.'
   },
   void_staff: {
     key: 'void_staff', name: '공허의 대지팡이',
     type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'legendary',
-    texture: 'item_staff', requiredLevel: 40,
+    texture: 'item_staff', requiredLevel: 30,
     stats: { INT: 100, attackPower: 220, WIS: 25, critDamage: 0.35 },
     description: '공허를 지배하는 자의 지팡이. 범위 마법이 강화된다.'
   },
@@ -169,28 +169,28 @@ export const ITEM_DATA = {
   iron_helmet: {
     key: 'iron_helmet', name: '철제 투구',
     type: 'equipment', slot: ITEM_SLOTS.HELMET, grade: 'uncommon',
-    texture: 'item_helmet', requiredLevel: 10,
+    texture: 'item_helmet', requiredLevel: 7,
     stats: { VIT: 8, defense: 18 },
     description: '단단한 철제 투구.'
   },
   guard_helm: {
     key: 'guard_helm', name: '수호자의 투구',
     type: 'equipment', slot: ITEM_SLOTS.HELMET, grade: 'rare',
-    texture: 'item_helmet', requiredLevel: 20,
+    texture: 'item_helmet', requiredLevel: 15,
     stats: { VIT: 16, defense: 38, STR: 6 },
     description: '최전선 수호자가 착용하는 투구.'
   },
   blood_crown: {
     key: 'blood_crown', name: '혈왕의 왕관',
     type: 'equipment', slot: ITEM_SLOTS.HELMET, grade: 'epic',
-    texture: 'item_helmet', requiredLevel: 30,
+    texture: 'item_helmet', requiredLevel: 23,
     stats: { VIT: 25, INT: 15, defense: 58, RES: 15 },
     description: '혈왕이 쓰던 왕관. 지식과 생명력을 높인다.'
   },
   abyss_crown: {
     key: 'abyss_crown', name: '심연왕의 관',
     type: 'equipment', slot: ITEM_SLOTS.HELMET, grade: 'legendary',
-    texture: 'item_helmet', requiredLevel: 40,
+    texture: 'item_helmet', requiredLevel: 30,
     stats: { VIT: 40, INT: 30, defense: 90, critRate: 0.05 },
     description: '심연을 통치하던 자의 관.'
   },
@@ -208,28 +208,28 @@ export const ITEM_DATA = {
   chainmail: {
     key: 'chainmail', name: '사슬 갑옷',
     type: 'equipment', slot: ITEM_SLOTS.ARMOR, grade: 'uncommon',
-    texture: 'item_armor', requiredLevel: 10,
+    texture: 'item_armor', requiredLevel: 7,
     stats: { VIT: 12, defense: 28 },
     description: '촘촘하게 엮인 사슬 갑옷.'
   },
   iron_plate: {
     key: 'iron_plate', name: '철판 갑옷',
     type: 'equipment', slot: ITEM_SLOTS.ARMOR, grade: 'rare',
-    texture: 'item_armor', requiredLevel: 20,
+    texture: 'item_armor', requiredLevel: 15,
     stats: { VIT: 22, defense: 55, RES: 10 },
     description: '두꺼운 철판을 여러 겹 덧댄 갑옷.'
   },
   bloodbound_armor: {
     key: 'bloodbound_armor', name: '혈맹 갑옷',
     type: 'equipment', slot: ITEM_SLOTS.ARMOR, grade: 'epic',
-    texture: 'item_armor', requiredLevel: 30,
+    texture: 'item_armor', requiredLevel: 23,
     stats: { VIT: 38, defense: 88, RES: 22, STR: 10 },
     description: '혈맹 결사대가 착용하는 특수 제작 갑옷.'
   },
   abyss_plate: {
     key: 'abyss_plate', name: '심연 흑철 갑옷',
     type: 'equipment', slot: ITEM_SLOTS.ARMOR, grade: 'legendary',
-    texture: 'item_armor', requiredLevel: 40,
+    texture: 'item_armor', requiredLevel: 30,
     stats: { VIT: 60, defense: 140, RES: 40, STR: 18 },
     description: '심연의 흑철로 벼려낸 최고급 갑옷.'
   },
@@ -247,21 +247,21 @@ export const ITEM_DATA = {
   leather_pants: {
     key: 'leather_pants', name: '가죽 각반',
     type: 'equipment', slot: ITEM_SLOTS.PANTS, grade: 'uncommon',
-    texture: 'item_pants', requiredLevel: 10,
+    texture: 'item_pants', requiredLevel: 7,
     stats: { VIT: 8, defense: 16, AGI: 5 },
     description: '움직임이 편한 가죽 각반.'
   },
   iron_greaves: {
     key: 'iron_greaves', name: '철제 다리보호대',
     type: 'equipment', slot: ITEM_SLOTS.PANTS, grade: 'rare',
-    texture: 'item_pants', requiredLevel: 20,
+    texture: 'item_pants', requiredLevel: 15,
     stats: { VIT: 15, defense: 32, STR: 8 },
     description: '단단한 철제 다리보호대.'
   },
   shadow_trousers: {
     key: 'shadow_trousers', name: '그림자 바지',
     type: 'equipment', slot: ITEM_SLOTS.PANTS, grade: 'epic',
-    texture: 'item_pants', requiredLevel: 30,
+    texture: 'item_pants', requiredLevel: 23,
     stats: { AGI: 22, defense: 48, critRate: 0.05 },
     description: '어둠 속에서 발소리도 나지 않는 바지.'
   },
@@ -279,21 +279,21 @@ export const ITEM_DATA = {
   leather_gloves: {
     key: 'leather_gloves', name: '가죽 장갑',
     type: 'equipment', slot: ITEM_SLOTS.GLOVES, grade: 'uncommon',
-    texture: 'item_gloves', requiredLevel: 10,
+    texture: 'item_gloves', requiredLevel: 7,
     stats: { STR: 8, attackPower: 12 },
     description: '손목을 감싸는 가죽 장갑.'
   },
   iron_gauntlets: {
     key: 'iron_gauntlets', name: '철제 건틀릿',
     type: 'equipment', slot: ITEM_SLOTS.GLOVES, grade: 'rare',
-    texture: 'item_gloves', requiredLevel: 20,
+    texture: 'item_gloves', requiredLevel: 15,
     stats: { STR: 16, attackPower: 28, defense: 15 },
     description: '주먹 한 방에 바위가 부서질 것 같은 건틀릿.'
   },
   abyss_gloves: {
     key: 'abyss_gloves', name: '심연의 손길',
     type: 'equipment', slot: ITEM_SLOTS.GLOVES, grade: 'epic',
-    texture: 'item_gloves', requiredLevel: 30,
+    texture: 'item_gloves', requiredLevel: 23,
     stats: { STR: 28, attackPower: 55, critDamage: 0.2 },
     description: '심연의 힘이 깃든 장갑. 치명타 피해가 증가한다.'
   },
@@ -311,21 +311,21 @@ export const ITEM_DATA = {
   leather_boots: {
     key: 'leather_boots', name: '가죽 장화',
     type: 'equipment', slot: ITEM_SLOTS.BOOTS, grade: 'uncommon',
-    texture: 'item_boots', requiredLevel: 10,
+    texture: 'item_boots', requiredLevel: 7,
     stats: { AGI: 10, defense: 10, moveSpeed: 12 },
     description: '발걸음이 가벼워지는 가죽 장화. 이동속도 +12.'
   },
   swift_boots: {
     key: 'swift_boots', name: '질풍의 단화',
     type: 'equipment', slot: ITEM_SLOTS.BOOTS, grade: 'rare',
-    texture: 'item_boots', requiredLevel: 20,
+    texture: 'item_boots', requiredLevel: 15,
     stats: { AGI: 22, defense: 20, moveSpeed: 22 },
     description: '바람처럼 달릴 수 있는 특수 단화. 이동속도 +22.'
   },
   shadow_treads: {
     key: 'shadow_treads', name: '그림자 밟기',
     type: 'equipment', slot: ITEM_SLOTS.BOOTS, grade: 'epic',
-    texture: 'item_boots', requiredLevel: 30,
+    texture: 'item_boots', requiredLevel: 23,
     stats: { AGI: 38, defense: 35, critRate: 0.04, moveSpeed: 35 },
     description: '그림자 위를 걷는 듯한 부츠. 이동속도 +35.'
   },
@@ -336,14 +336,14 @@ export const ITEM_DATA = {
   power_ring: {
     key: 'power_ring', name: '힘의 반지',
     type: 'equipment', slot: ITEM_SLOTS.RING1, grade: 'uncommon',
-    texture: 'item_ring', requiredLevel: 5,
+    texture: 'item_ring', requiredLevel: 7,
     stats: { STR: 8, attackPower: 12 },
     description: '착용자의 힘을 높여주는 반지.'
   },
   wisdom_ring: {
     key: 'wisdom_ring', name: '지혜의 반지',
     type: 'equipment', slot: ITEM_SLOTS.RING1, grade: 'uncommon',
-    texture: 'item_ring', requiredLevel: 5,
+    texture: 'item_ring', requiredLevel: 7,
     stats: { WIS: 8, INT: 6 },
     description: '마력과 지혜를 높여주는 반지.'
   },
@@ -357,7 +357,7 @@ export const ITEM_DATA = {
   abyss_ring: {
     key: 'abyss_ring', name: '심연의 반지',
     type: 'equipment', slot: ITEM_SLOTS.RING1, grade: 'epic',
-    texture: 'item_ring', requiredLevel: 25,
+    texture: 'item_ring', requiredLevel: 23,
     stats: { STR: 20, attackPower: 42, critRate: 0.05 },
     description: '심연의 힘이 응결된 반지.'
   },
@@ -371,7 +371,7 @@ export const ITEM_DATA = {
   crit_ring: {
     key: 'crit_ring', name: '냉혹한 반지',
     type: 'equipment', slot: ITEM_SLOTS.RING2, grade: 'epic',
-    texture: 'item_ring', requiredLevel: 25,
+    texture: 'item_ring', requiredLevel: 23,
     stats: { critRate: 0.06, critDamage: 0.3, AGI: 12 },
     description: '착용자를 냉혹한 암살자로 만드는 반지.'
   },
@@ -389,21 +389,21 @@ export const ITEM_DATA = {
   blood_pendant: {
     key: 'blood_pendant', name: '혈석 펜던트',
     type: 'equipment', slot: ITEM_SLOTS.NECKLACE, grade: 'uncommon',
-    texture: 'item_necklace', requiredLevel: 10,
+    texture: 'item_necklace', requiredLevel: 7,
     stats: { RES: 22, VIT: 8 },
     description: '혈석이 달린 펜던트. 흡혈 공격을 어느 정도 막아준다.'
   },
   abyss_pendant: {
     key: 'abyss_pendant', name: '심연 펜던트',
     type: 'equipment', slot: ITEM_SLOTS.NECKLACE, grade: 'rare',
-    texture: 'item_necklace', requiredLevel: 20,
+    texture: 'item_necklace', requiredLevel: 15,
     stats: { RES: 35, INT: 12, WIS: 10 },
     description: '심연의 에너지가 담긴 펜던트. 마법 능력이 향상된다.'
   },
   crimson_choker: {
     key: 'crimson_choker', name: '진홍 초커',
     type: 'equipment', slot: ITEM_SLOTS.NECKLACE, grade: 'epic',
-    texture: 'item_necklace', requiredLevel: 30,
+    texture: 'item_necklace', requiredLevel: 23,
     stats: { STR: 15, INT: 15, critDamage: 0.25 },
     description: '전사와 마법사 모두에게 어울리는 만능 초커.'
   },

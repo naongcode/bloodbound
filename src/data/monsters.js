@@ -53,6 +53,8 @@ export const MONSTER_DATA = {
       { itemKey: 'cloth_boots',   chance: 0.10, quantity: [1, 1] },
       { itemKey: 'hunters_bow',   chance: 0.08, quantity: [1, 1] },
       { itemKey: 'leather_cap',   chance: 0.06, quantity: [1, 1] },
+      { itemKey: 'power_ring',    chance: 0.04, quantity: [1, 1] },
+      { itemKey: 'wisdom_ring',   chance: 0.04, quantity: [1, 1] },
     ]
   },
 
@@ -86,6 +88,8 @@ export const MONSTER_DATA = {
       { itemKey: 'leather_armor',  chance: 0.08, quantity: [1, 1] },
       { itemKey: 'iron_helmet',    chance: 0.08, quantity: [1, 1] },
       { itemKey: 'shadow_bow',     chance: 0.06, quantity: [1, 1] },
+      { itemKey: 'power_ring',     chance: 0.06, quantity: [1, 1] },
+      { itemKey: 'wisdom_ring',    chance: 0.06, quantity: [1, 1] },
     ]
   },
 
@@ -114,6 +118,8 @@ export const MONSTER_DATA = {
       { itemKey: 'blood_pendant',  chance: 0.10, quantity: [1, 1] },
       { itemKey: 'iron_helmet',    chance: 0.08, quantity: [1, 1] },
       { itemKey: 'chainmail',      chance: 0.06, quantity: [1, 1] },
+      { itemKey: 'resistance_ring',chance: 0.05, quantity: [1, 1] },
+      { itemKey: 'blood_signet',   chance: 0.05, quantity: [1, 1] },
     ]
   },
 
@@ -150,6 +156,9 @@ export const MONSTER_DATA = {
       { itemKey: 'crusader_sword',  chance: 0.06, quantity: [1, 1] },
       { itemKey: 'crimson_staff',   chance: 0.06, quantity: [1, 1] },
       { itemKey: 'crimson_bow',     chance: 0.06, quantity: [1, 1] },
+      { itemKey: 'resistance_ring', chance: 0.07, quantity: [1, 1] },
+      { itemKey: 'blood_signet',    chance: 0.07, quantity: [1, 1] },
+      { itemKey: 'abyss_ring',      chance: 0.04, quantity: [1, 1] },
     ]
   },
 
@@ -188,6 +197,8 @@ export const MONSTER_DATA = {
       { itemKey: 'bloodkin_blade',  chance: 0.05, quantity: [1, 1] },
       { itemKey: 'void_bow',        chance: 0.04, quantity: [1, 1] },
       { itemKey: 'abyss_wand',      chance: 0.04, quantity: [1, 1] },
+      { itemKey: 'abyss_ring',      chance: 0.06, quantity: [1, 1] },
+      { itemKey: 'crit_ring',       chance: 0.06, quantity: [1, 1] },
     ]
   },
 
@@ -280,6 +291,8 @@ export const MONSTER_DATA = {
       { itemKey: 'leather',        chance: 0.5, quantity: [1, 3] },
       { itemKey: 'hunters_bow',    chance: 0.10, quantity: [1, 1] },
       { itemKey: 'leather_boots',  chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'power_ring',     chance: 0.05, quantity: [1, 1] },
+      { itemKey: 'wisdom_ring',    chance: 0.05, quantity: [1, 1] },
     ]
   },
 
