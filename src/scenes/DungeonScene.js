@@ -59,10 +59,11 @@ export default class DungeonScene extends Phaser.Scene {
     this.buildWorld();
     this.spawnPlayer();
 
-    this.monsters  = this.add.group();
-    this._bullets  = [];
-    this._waveIdx  = 0;
-    this._cleared  = false;
+    this.monsters   = this.add.group();
+    this._bullets   = [];
+    this._waveIdx   = 0;
+    this._cleared   = false;
+    this._monsterMap = new Map(); // netId → Monster (멀티플레이 동기화용)
 
     // 난이도에 따라 웨이브 목록 생성
     const diff    = this._difficulty;
@@ -174,40 +175,94 @@ export default class DungeonScene extends Phaser.Scene {
     this._waveIdx = idx;
     const wave = this._waves[idx];
 
+    this._startWaveVisuals(wave);
+
+    // 기존 몬스터 정리
+    this.monsters.getChildren().forEach(m => { if (m.active) m.destroy(); });
+    this.monsters.clear(true, true);
+    this._monsterMap = new Map();
+
+    if (this._isMulti && Network.isHost()) {
+      // 호스트: 스폰 위치 생성 → 브로드캐스트 → 스폰
+      const spawnList = this._buildWaveSpawnData(wave);
+      Network.sendWaveSpawn(idx, spawnList);
+      this._spawnFromList(spawnList, wave.boss);
+    } else if (!this._isMulti) {
+      // 솔로: 각자 랜덤 스폰
+      wave.monsters.forEach(entry => {
+        for (let i = 0; i < entry.count; i++) {
+          const m = this.spawnMonster(entry.key);
+          if (m && entry.boss) this.makeBoss(m);
+        }
+      });
+      this.physics.add.collider(this.monsters.getChildren(), this.walls);
+    }
+    // 멀티 비호스트: waveSpawn 이벤트 수신 후 스폰
+  }
+
+  _startWaveVisuals(wave) {
     this.showWaveBanner(wave.label, wave.boss);
     this.updateWaveHUD();
     this.sound.stopByKey('bgm_dungeon');
     this.sound.play('bgm_dungeon', { loop: false, volume: 0.5 });
     if (wave.boss) this.sound.play('sfx_boss_popup', { volume: 0.5 });
+  }
 
-    // 기존 몬스터 정리
-    this.monsters.getChildren().forEach(m => { if (m.active) m.destroy(); });
-    this.monsters.clear(true, true);
-
+  /** 호스트용: 웨이브 스폰 데이터 생성 (netId + 위치 포함) */
+  _buildWaveSpawnData(wave) {
+    let netId = 0;
+    const list = [];
     wave.monsters.forEach(entry => {
       for (let i = 0; i < entry.count; i++) {
-        const m = this.spawnMonster(entry.key);
-        if (m && entry.boss) this.makeBoss(m);
+        const pos = this._genSpawnPos();
+        list.push({ netId: netId++, key: entry.key, x: pos.x, y: pos.y, boss: !!entry.boss });
       }
     });
+    return list;
+  }
 
+  /** 스폰 데이터 배열로 실제 몬스터 생성 */
+  _spawnFromList(list, isBossWave = false) {
+    list.forEach(entry => {
+      const m = this.spawnMonsterAt(entry.key, entry.x, entry.y);
+      if (!m) return;
+      m.netId = entry.netId;
+      this._monsterMap.set(entry.netId, m);
+      if (entry.boss || isBossWave) this.makeBoss(m);
+    });
     this.physics.add.collider(this.monsters.getChildren(), this.walls);
   }
 
-  spawnMonster(key) {
-    const data = MONSTER_DATA[key];
-    if (!data) return null;
+  /** 비호스트 클라이언트: 호스트가 보낸 스폰 데이터로 웨이브 시작 */
+  _receiveWaveSpawn(waveIdx, list) {
+    if (waveIdx >= this._waves.length) return;
+    this._waveIdx = waveIdx;
+    const wave = this._waves[waveIdx];
 
-    // 플레이어와 멀리 떨어진 스폰 위치
-    let x, y;
-    let tries = 0;
+    this._startWaveVisuals(wave);
+
+    this.monsters.getChildren().forEach(m => { if (m.active) m.destroy(); });
+    this.monsters.clear(true, true);
+    this._monsterMap = new Map();
+
+    this._spawnFromList(list, wave.boss);
+  }
+
+  /** 랜덤 스폰 위치 생성 */
+  _genSpawnPos() {
+    let x, y, tries = 0;
     do {
       x = Phaser.Math.Between(WALL + 50, DW - WALL - 50);
       y = Phaser.Math.Between(WALL + 50, DH - WALL - 50);
       tries++;
     } while (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 250 && tries < 30);
+    return { x, y };
+  }
 
-    // 난이도 배율 적용
+  /** 지정 좌표에 몬스터 생성 (멀티/솔로 공용) */
+  spawnMonsterAt(key, x, y) {
+    const data = MONSTER_DATA[key];
+    if (!data) return null;
     const cfg = this._diffCfg || DIFF_TABLE[1];
     const scaledData = {
       ...data,
@@ -215,12 +270,17 @@ export default class DungeonScene extends Phaser.Scene {
       baseDamage: Math.floor(data.baseDamage * cfg.dmgMult),
       speed:      Math.floor(data.speed      * (cfg.speedMult || 1.0)),
     };
-
     const monster = new Monster(this, x, y, scaledData);
-    monster.target   = this.player;
-    monster.isAggro  = true;
+    monster.target  = this.player;
+    monster.isAggro = true;
     this.monsters.add(monster);
     return monster;
+  }
+
+  /** 솔로용: 랜덤 위치에 몬스터 생성 */
+  spawnMonster(key) {
+    const { x, y } = this._genSpawnPos();
+    return this.spawnMonsterAt(key, x, y);
   }
 
   makeBoss(monster) {
@@ -248,13 +308,17 @@ export default class DungeonScene extends Phaser.Scene {
     const nextIdx = this._waveIdx + 1;
     if (nextIdx < this._waves.length) {
       this.showFloatText(DW / 2, DH / 2 - 40, '웨이브 클리어!', '#2ecc71', '22px');
-      // 멀티: 호스트가 웨이브 진행 브로드캐스트
       if (this._isMulti && Network.isHost()) {
-        Network.sendWaveCleared(nextIdx);
-      }
-      if (!this._isMulti || Network.isHost()) {
+        // 비호스트에게 클리어 배너만 표시 (스폰은 waveSpawn으로 별도 처리)
+        Network.sendWaveClearNotice();
+        this.time.delayedCall(3000, () => {
+          if (!this.scene.isActive('DungeonScene')) return;
+          this.startWave(nextIdx); // 호스트가 startWave → waveSpawn 브로드캐스트
+        });
+      } else if (!this._isMulti) {
         this.time.delayedCall(3000, () => this.startWave(nextIdx));
       }
+      // 멀티 비호스트: waveSpawn 수신 시 자동으로 다음 웨이브 처리됨
     } else {
       if (this._isMulti && Network.isHost()) Network.sendDungeonCleared();
       this.onDungeonClear();
@@ -374,6 +438,10 @@ export default class DungeonScene extends Phaser.Scene {
     this.events.on('monsterDied', ({ monster }) => {
       if (!monster.isAlive) return;
       monster.isAlive = false;
+      // 멀티: 다른 클라이언트에도 사망 브로드캐스트
+      if (this._isMulti && monster.netId !== undefined) {
+        Network.sendMonsterDied(monster.netId);
+      }
       this.handleMonsterDeath(monster);
       // 보스 HP바 갱신
       if (monster === this._bossTarget) this._bossTarget = null;
@@ -816,34 +884,86 @@ export default class DungeonScene extends Phaser.Scene {
     });
 
     // 다른 플레이어 상태 수신
-    this._cbStateUpdate   = ({ id, x, y, hp, maxHp }) => this._updateRemote(id, x, y, hp, maxHp);
-    this._cbWaveSync      = ({ waveIdx }) => {
-      this.showFloatText(DW / 2, DH / 2 - 40, '웨이브 클리어!', '#2ecc71', '22px');
-      this.time.delayedCall(3000, () => {
-        if (!this.scene.isActive('DungeonScene')) return;
-        this.startWave(waveIdx);
-      });
-    };
-    this._cbDungeonCleared = () => this.onDungeonClear();
-    this._cbPlayerLeft    = ({ id }) => {
+    // ── 플레이어 동기화 ─────────────────────────────────────
+    this._cbStateUpdate = ({ id, x, y, hp, maxHp }) => this._updateRemote(id, x, y, hp, maxHp);
+    this._cbPlayerLeft  = ({ id }) => {
       const r = this._remotes.get(id);
       if (r) { r.gfx?.destroy(); r.nameTxt?.destroy(); r.hpBg?.destroy(); r.hpBr?.destroy(); }
       this._remotes.delete(id);
     };
 
-    Network.on('playerStateUpdate', this._cbStateUpdate);
-    Network.on('waveSync',          this._cbWaveSync);
-    Network.on('dungeonClearedSync',this._cbDungeonCleared);
-    Network.on('playerLeft',        this._cbPlayerLeft);
+    // ── 몬스터 동기화 ────────────────────────────────────────
+    // 웨이브 클리어 배너 (비호스트)
+    this._cbWaveClearNotice = () => {
+      this.showFloatText(DW / 2, DH / 2 - 40, '웨이브 클리어!', '#2ecc71', '22px');
+    };
+    // 호스트가 보낸 스폰 데이터로 웨이브 시작 (비호스트)
+    this._cbWaveSpawn = ({ waveIdx, monsters }) => {
+      if (!this.scene.isActive('DungeonScene')) return;
+      this._receiveWaveSpawn(waveIdx, monsters);
+    };
+    // 몬스터 사망 동기화 (다른 클라이언트가 킬한 경우)
+    this._cbNetMonsterDied = ({ netId }) => {
+      const m = this._monsterMap?.get(netId);
+      if (!m || !m.isAlive) return;
+      m.isAlive = false;
+      this.handleMonsterDeath(m);
+      if (m === this._bossTarget) this._bossTarget = null;
+      if (m.isBoss) {
+        this.sound.stopByKey('bgm_dungeon');
+        this.sound.play('sfx_dungeon_boss_die', { volume: 0.5 });
+      }
+      this.time.delayedCall(500, () => this.checkWaveCleared());
+    };
+    // 호스트가 보내는 몬스터 위치/HP 동기화 (비호스트 수신)
+    this._cbMonsterSync = ({ states }) => {
+      if (Network.isHost()) return;
+      states.forEach(({ netId, x, y, hp }) => {
+        const m = this._monsterMap?.get(netId);
+        if (!m || !m.isAlive) return;
+        // 부드러운 위치 보간
+        m.x = Phaser.Math.Linear(m.x, x, 0.25);
+        m.y = Phaser.Math.Linear(m.y, y, 0.25);
+        m.hp = hp;
+      });
+    };
+    this._cbDungeonCleared = () => this.onDungeonClear();
+
+    Network.on('playerStateUpdate',  this._cbStateUpdate);
+    Network.on('playerLeft',         this._cbPlayerLeft);
+    Network.on('waveClearNotice',    this._cbWaveClearNotice);
+    Network.on('waveSpawn',          this._cbWaveSpawn);
+    Network.on('netMonsterDied',     this._cbNetMonsterDied);
+    Network.on('monsterSync',        this._cbMonsterSync);
+    Network.on('dungeonClearedSync', this._cbDungeonCleared);
+
+    // 호스트: 200ms마다 몬스터 위치/HP 브로드캐스트
+    if (Network.isHost()) {
+      this._monsterSyncTimer = this.time.addEvent({
+        delay: 200, loop: true,
+        callback: () => {
+          if (!this._monsterMap?.size) return;
+          const states = [];
+          this._monsterMap.forEach((m, netId) => {
+            if (m.isAlive) states.push({ netId, x: Math.round(m.x), y: Math.round(m.y), hp: Math.round(m.hp) });
+          });
+          if (states.length) Network.sendMonsterSync(states);
+        },
+      });
+    }
 
     // shutdown 시 Network 리스너 정리
     this.events.once('shutdown', () => {
-      Network.off('playerStateUpdate', this._cbStateUpdate);
-      Network.off('waveSync',          this._cbWaveSync);
-      Network.off('dungeonClearedSync',this._cbDungeonCleared);
-      Network.off('playerLeft',        this._cbPlayerLeft);
+      Network.off('playerStateUpdate',  this._cbStateUpdate);
+      Network.off('playerLeft',         this._cbPlayerLeft);
+      Network.off('waveClearNotice',    this._cbWaveClearNotice);
+      Network.off('waveSpawn',          this._cbWaveSpawn);
+      Network.off('netMonsterDied',     this._cbNetMonsterDied);
+      Network.off('monsterSync',        this._cbMonsterSync);
+      Network.off('dungeonClearedSync', this._cbDungeonCleared);
       this._netTimer?.remove();
       this._partyTimer?.remove();
+      this._monsterSyncTimer?.remove();
       this._remotes?.forEach(r => {
         r.gfx?.destroy(); r.nameTxt?.destroy();
         r.hpBg?.destroy(); r.hpBr?.destroy();

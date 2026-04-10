@@ -150,9 +150,27 @@ class NetworkManager {
     });
   }
 
-  sendWaveCleared(waveIdx) {
+  // 웨이브 클리어 알림 (배너 표시용 — 스폰은 waveSpawn으로 별도 처리)
+  sendWaveClearNotice() {
     if (!this.isHost()) return;
-    this._roomCh?.send({ type: 'broadcast', event: 'waveCleared', payload: { waveIdx } });
+    this._roomCh?.send({ type: 'broadcast', event: 'waveClearNotice', payload: {} });
+  }
+
+  // 호스트 → 전체: 다음 웨이브 스폰 데이터 (위치 동기화)
+  sendWaveSpawn(waveIdx, monsters) {
+    if (!this.isHost()) return;
+    this._roomCh?.send({ type: 'broadcast', event: 'waveSpawn', payload: { waveIdx, monsters } });
+  }
+
+  // 몬스터 사망 브로드캐스트 (어느 클라이언트든 킬 시 전송)
+  sendMonsterDied(netId) {
+    this._roomCh?.send({ type: 'broadcast', event: 'netMonsterDied', payload: { netId } });
+  }
+
+  // 호스트 → 전체: 몬스터 위치/HP 주기 동기화
+  sendMonsterSync(states) {
+    if (!this.isHost()) return;
+    this._roomCh?.send({ type: 'broadcast', event: 'monsterSync', payload: { states } });
   }
 
   sendDungeonCleared() {
@@ -258,8 +276,11 @@ class NetworkManager {
         this.room = payload.room;
         this._emit('gameStarted', payload);
       })
-      .on('broadcast', { event: 'playerState' },   ({ payload }) => this._emit('playerStateUpdate', payload))
-      .on('broadcast', { event: 'waveCleared' },   ({ payload }) => this._emit('waveSync', payload))
+      .on('broadcast', { event: 'playerState' },    ({ payload }) => this._emit('playerStateUpdate', payload))
+      .on('broadcast', { event: 'waveClearNotice'},()           => this._emit('waveClearNotice', {}))
+      .on('broadcast', { event: 'waveSpawn' },     ({ payload }) => this._emit('waveSpawn', payload))
+      .on('broadcast', { event: 'netMonsterDied'}, ({ payload }) => this._emit('netMonsterDied', payload))
+      .on('broadcast', { event: 'monsterSync' },   ({ payload }) => this._emit('monsterSync', payload))
       .on('broadcast', { event: 'dungeonCleared'}, ()           => this._emit('dungeonClearedSync', {}))
       .on('broadcast', { event: 'guildNotice' },   ({ payload }) => this._emit('guildNotice', payload))
       .on('broadcast', { event: 'hostChanged' },   ({ payload }) => {
