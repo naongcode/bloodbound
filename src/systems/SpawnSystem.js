@@ -32,39 +32,49 @@ export function spawnMonster(scene, key, opts = {}) {
   const data = MONSTER_DATA[key];
   if (!data) return;
 
-  const minDist = opts.minDist ?? 300;
-  let x, y;
-  if (opts.outerZone) {
-    // 맵 외곽 400px 이내 영역에서만 스폰
-    const margin = 400;
-    do {
-      const side = Phaser.Math.Between(0, 3);
-      if (side === 0)      { x = Phaser.Math.Between(100, margin);                y = Phaser.Math.Between(100, MAP_H - 100); }
-      else if (side === 1) { x = Phaser.Math.Between(MAP_W - margin, MAP_W - 100); y = Phaser.Math.Between(100, MAP_H - 100); }
-      else if (side === 2) { x = Phaser.Math.Between(100, MAP_W - 100);           y = Phaser.Math.Between(100, margin); }
-      else                 { x = Phaser.Math.Between(100, MAP_W - 100);           y = Phaser.Math.Between(MAP_H - margin, MAP_H - 100); }
-    } while (scene.player && Phaser.Math.Distance.Between(x, y, scene.player.x, scene.player.y) < minDist);
-  } else {
-    do {
-      x = Phaser.Math.Between(100, MAP_W - 100);
-      y = Phaser.Math.Between(100, MAP_H - 100);
-    } while (Phaser.Math.Distance.Between(x, y, MAP_W / 2, MAP_H / 2) < minDist);
+  let x = opts.x, y = opts.y;
+
+  // 좌표가 지정되지 않은 경우 랜덤 생성
+  if (x === undefined || y === undefined) {
+    const minDist = opts.minDist ?? 300;
+    if (opts.outerZone) {
+      const margin = 400;
+      do {
+        const side = Phaser.Math.Between(0, 3);
+        if (side === 0)      { x = Phaser.Math.Between(100, margin);                  y = Phaser.Math.Between(100, MAP_H - 100); }
+        else if (side === 1) { x = Phaser.Math.Between(MAP_W - margin, MAP_W - 100);  y = Phaser.Math.Between(100, MAP_H - 100); }
+        else if (side === 2) { x = Phaser.Math.Between(100, MAP_W - 100);             y = Phaser.Math.Between(100, margin); }
+        else                 { x = Phaser.Math.Between(100, MAP_W - 100);             y = Phaser.Math.Between(MAP_H - margin, MAP_H - 100); }
+      } while (scene.player && Phaser.Math.Distance.Between(x, y, scene.player.x, scene.player.y) < minDist);
+    } else {
+      do {
+        x = Phaser.Math.Between(100, MAP_W - 100);
+        y = Phaser.Math.Between(100, MAP_H - 100);
+      } while (Phaser.Math.Distance.Between(x, y, MAP_W / 2, MAP_H / 2) < minDist);
+    }
   }
 
   const monster = new Monster(scene, x, y, data);
   monster.target = scene.player;
   scene.monsters.add(monster);
 
-  // 10% 확률로 엘리트화
-  if (!opts.noElite && Math.random() < 0.10) _makeElite(monster);
+  // 10% 확률로 엘리트화 (skipElite=true이면 건너뜀 — 네트워크 수신 스폰 시)
+  if (!opts.noElite && !opts.skipElite && Math.random() < 0.10) _makeElite(monster);
 
   return monster;
 }
 
+/** 엘리트 속성 적용 (네트워크 수신 측에서도 사용) */
+export function applyElite(monster) {
+  _makeElite(monster);
+}
+
 // ── 몬스터 리스폰 (타이머 루프) ───────────────────────────
+// 반환값: 새로 스폰된 몬스터 배열 (멀티플레이 브로드캐스트용)
 export function respawnMonsters(scene) {
   const alive   = scene.monsters.getChildren().filter(m => m.isAlive).length;
   const toSpawn = Math.max(0, 35 - alive);
+  const spawned = [];
   for (let i = 0; i < toSpawn; i++) {
     const roll = Math.random();
     let key, opts;
@@ -76,8 +86,10 @@ export function respawnMonsters(scene) {
     else if (roll < 0.91) { key = 'shadow_knight';  opts = { minDist: 700, outerZone: true }; }
     else if (roll < 0.97) { key = 'blood_kin';      opts = { minDist: 700, noElite: true }; }
     else                  { key = 'blood_goblin';   opts = { minDist: 200, noElite: true }; }
-    spawnMonster(scene, key, opts);
+    const m = spawnMonster(scene, key, opts);
+    if (m) spawned.push(m);
   }
+  return spawned;
 }
 
 // ── 몬스터 사망 처리 ──────────────────────────────────────

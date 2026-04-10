@@ -8,7 +8,7 @@ import SaveSystem from '../systems/SaveSystem.js';
 import Network from '../systems/NetworkManager.js';
 import { MONSTER_DATA } from '../data/monsters.js';
 import { ITEM_DATA } from '../data/items.js';
-import { spawnInitialMonsters, respawnMonsters, handleMonsterDeath } from '../systems/SpawnSystem.js';
+import { spawnInitialMonsters, spawnMonster, respawnMonsters, handleMonsterDeath, applyElite } from '../systems/SpawnSystem.js';
 import { showMeleeEffect, handlePlayerSkill } from '../systems/SkillSystem.js';
 
 const MAP_W = 3200;
@@ -64,8 +64,15 @@ export default class GameScene extends Phaser.Scene {
     this._eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
     // ── 몬스터 그룹 ──────────────────────────────────────────
-    this.monsters = this.add.group();
-    spawnInitialMonsters(this);
+    this.monsters    = this.add.group();
+    this._monsterMap = new Map(); // netId → Monster (멀티플레이 동기화용)
+    this._nextNetId  = 0;
+
+    // 솔로 or 호스트만 초기 스폰 (비호스트는 fieldMonsterSpawn 수신 후 스폰)
+    if (!this._isMulti || Network.isHost()) {
+      spawnInitialMonsters(this);
+      if (this._isMulti) this._assignAndBroadcastSpawn();
+    }
 
     // ── 누적 처치 카운터 ─────────────────────────────────────
     this._killCount      = 0;  // 총 누적 처치 수
@@ -92,7 +99,16 @@ export default class GameScene extends Phaser.Scene {
     this.scene.bringToTop('UIScene');
 
     // ── 몬스터 리스폰 타이머 ──────────────────────────────────
-    this.time.addEvent({ delay: 10000, loop: true, callback: () => respawnMonsters(this) });
+    this._respawnTimer = this.time.addEvent({
+      delay: 10000, loop: true,
+      callback: () => {
+        if (this._isMulti && !Network.isHost()) return; // 비호스트 스킵
+        const spawned = respawnMonsters(this);
+        if (this._isMulti && Network.isHost() && spawned.length) {
+          this._assignAndBroadcastSpawn(spawned);
+        }
+      },
+    });
 
     // ── 필드 보스 ─────────────────────────────────────────────
     this.buildFieldBosses();
@@ -239,6 +255,10 @@ export default class GameScene extends Phaser.Scene {
     this.events.on('monsterDied', ({ monster }) => {
       if (!monster.isAlive) return;
       monster.isAlive = false;
+      // 멀티: 다른 클라이언트에 사망 브로드캐스트 (보상은 킬한 쪽만)
+      if (this._isMulti && monster.netId !== undefined) {
+        Network.sendMonsterDied(monster.netId);
+      }
       handleMonsterDeath(this, monster);
       // 필드 보스 사망 콜백
       if (monster.isFieldBoss && monster.onBossDeath) {
@@ -756,13 +776,68 @@ export default class GameScene extends Phaser.Scene {
     Network.on('playerStateUpdate', this._cbStateUpdate);
     Network.on('playerLeft',        this._cbPlayerLeft);
 
+    // ── 필드 몬스터 동기화 ──────────────────────────────────
+    // 비호스트: 호스트가 보낸 스폰 데이터로 몬스터 생성
+    this._cbFieldMonsterSpawn = ({ monsters }) => {
+      if (Network.isHost()) return;
+      monsters.forEach(entry => {
+        const m = spawnMonster(this, entry.key, { x: entry.x, y: entry.y, skipElite: true });
+        if (!m) return;
+        m.netId = entry.netId;
+        this._monsterMap.set(entry.netId, m);
+        if (entry.isElite) applyElite(m);
+      });
+    };
+    // 비호스트: 호스트 몬스터 위치/HP 보간
+    this._cbFieldMonsterSync = ({ states }) => {
+      if (Network.isHost()) return;
+      states.forEach(({ netId, x, y, hp }) => {
+        const m = this._monsterMap?.get(netId);
+        if (!m || !m.isAlive) return;
+        m.x = Phaser.Math.Linear(m.x, x, 0.25);
+        m.y = Phaser.Math.Linear(m.y, y, 0.25);
+        m.hp = hp;
+      });
+    };
+    // 모든 클라이언트: 다른 클라이언트가 킬한 몬스터 처리 (보상 없이 제거만)
+    this._cbNetMonsterDied = ({ netId }) => {
+      const m = this._monsterMap?.get(netId);
+      if (!m || !m.isAlive) return;
+      m.isAlive = false;
+      m.destroy();
+      this._monsterMap.delete(netId);
+    };
+
+    Network.on('fieldMonsterSpawn', this._cbFieldMonsterSpawn);
+    Network.on('fieldMonsterSync',  this._cbFieldMonsterSync);
+    Network.on('netMonsterDied',    this._cbNetMonsterDied);
+
+    // 호스트: 250ms마다 몬스터 위치/HP 브로드캐스트
+    if (Network.isHost()) {
+      this._fieldSyncTimer = this.time.addEvent({
+        delay: 250, loop: true,
+        callback: () => {
+          if (!this._monsterMap.size) return;
+          const states = [];
+          this._monsterMap.forEach((m, netId) => {
+            if (m.isAlive) states.push({ netId, x: Math.round(m.x), y: Math.round(m.y), hp: Math.round(m.hp) });
+          });
+          if (states.length) Network.sendFieldMonsterSync(states);
+        },
+      });
+    }
+
     // shutdown 시 Network 리스너 정리
     this.events.once('shutdown', () => {
-      Network.off('playerStateUpdate', this._cbStateUpdate);
-      Network.off('playerLeft',        this._cbPlayerLeft);
+      Network.off('playerStateUpdate',  this._cbStateUpdate);
+      Network.off('playerLeft',         this._cbPlayerLeft);
+      Network.off('fieldMonsterSpawn',  this._cbFieldMonsterSpawn);
+      Network.off('fieldMonsterSync',   this._cbFieldMonsterSync);
+      Network.off('netMonsterDied',     this._cbNetMonsterDied);
       this._netTimer?.remove();
       this._partyTimer?.remove();
-      // 원격 플레이어 아바타 정리
+      this._fieldSyncTimer?.remove();
+      this._respawnTimer?.remove();
       this._remotes?.forEach(r => {
         r.gfx?.destroy(); r.nameText?.destroy();
         r.hpBg?.destroy(); r.hpBar?.destroy();
@@ -774,6 +849,28 @@ export default class GameScene extends Phaser.Scene {
     this._buildPartyHUD();
     // 300ms마다 파티 HUD 갱신
     this._partyTimer = this.time.addEvent({ delay: 300, loop: true, callback: () => this._refreshPartyHUD() });
+  }
+
+  /** 스폰된 몬스터에 netId 할당 후 fieldMonsterSpawn 브로드캐스트 */
+  _assignAndBroadcastSpawn(monsters) {
+    const target = monsters ?? this.monsters.getChildren();
+    const spawnData = [];
+    target.forEach(m => {
+      if (m.netId === undefined) {
+        m.netId = this._nextNetId++;
+      }
+      this._monsterMap.set(m.netId, m);
+      if (m.monsterData?.key) {
+        spawnData.push({
+          netId:   m.netId,
+          key:     m.monsterData.key,
+          x:       Math.round(m.x),
+          y:       Math.round(m.y),
+          isElite: !!m.isElite,
+        });
+      }
+    });
+    if (spawnData.length) Network.sendFieldMonsterSpawn(spawnData);
   }
 
   _updateRemotePlayer(id, x, y, hp, maxHp, _level) {

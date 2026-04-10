@@ -167,10 +167,22 @@ class NetworkManager {
     this._roomCh?.send({ type: 'broadcast', event: 'netMonsterDied', payload: { netId } });
   }
 
-  // 호스트 → 전체: 몬스터 위치/HP 주기 동기화
+  // 호스트 → 전체: 몬스터 위치/HP 주기 동기화 (던전용)
   sendMonsterSync(states) {
     if (!this.isHost()) return;
     this._roomCh?.send({ type: 'broadcast', event: 'monsterSync', payload: { states } });
+  }
+
+  // 호스트 → 전체: 필드 몬스터 스폰 데이터 (최초 스폰 + 리스폰)
+  sendFieldMonsterSpawn(monsters) {
+    if (!this.isHost()) return;
+    this._roomCh?.send({ type: 'broadcast', event: 'fieldMonsterSpawn', payload: { monsters } });
+  }
+
+  // 호스트 → 전체: 필드 몬스터 위치/HP 주기 동기화
+  sendFieldMonsterSync(states) {
+    if (!this.isHost()) return;
+    this._roomCh?.send({ type: 'broadcast', event: 'fieldMonsterSync', payload: { states } });
   }
 
   sendDungeonCleared() {
@@ -279,8 +291,10 @@ class NetworkManager {
       .on('broadcast', { event: 'playerState' },    ({ payload }) => this._emit('playerStateUpdate', payload))
       .on('broadcast', { event: 'waveClearNotice'},()           => this._emit('waveClearNotice', {}))
       .on('broadcast', { event: 'waveSpawn' },     ({ payload }) => this._emit('waveSpawn', payload))
-      .on('broadcast', { event: 'netMonsterDied'}, ({ payload }) => this._emit('netMonsterDied', payload))
-      .on('broadcast', { event: 'monsterSync' },   ({ payload }) => this._emit('monsterSync', payload))
+      .on('broadcast', { event: 'netMonsterDied'},    ({ payload }) => this._emit('netMonsterDied', payload))
+      .on('broadcast', { event: 'monsterSync' },      ({ payload }) => this._emit('monsterSync', payload))
+      .on('broadcast', { event: 'fieldMonsterSpawn'}, ({ payload }) => this._emit('fieldMonsterSpawn', payload))
+      .on('broadcast', { event: 'fieldMonsterSync' }, ({ payload }) => this._emit('fieldMonsterSync', payload))
       .on('broadcast', { event: 'dungeonCleared'}, ()           => this._emit('dungeonClearedSync', {}))
       .on('broadcast', { event: 'guildNotice' },   ({ payload }) => this._emit('guildNotice', payload))
       .on('broadcast', { event: 'hostChanged' },   ({ payload }) => {
