@@ -6,6 +6,8 @@ const PORT = 3001;
 const httpServer = createServer();
 const io = new Server(httpServer, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
+  pingInterval: 5000,   // 5초마다 핑 (기본 25초)
+  pingTimeout:  10000,  // 10초 무응답 시 끊김 처리 (기본 20초)
 });
 
 // rooms: Map<roomId, Room>
@@ -56,6 +58,21 @@ function handleLeave(socket) {
   }
   io.emit('roomList', getRoomList());
 }
+
+// ── 빈 방 주기적 정리 (30초마다) ─────────────────────────
+setInterval(() => {
+  let cleaned = 0;
+  for (const [roomId, room] of rooms) {
+    if (room.players.size === 0) {
+      rooms.delete(roomId);
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) {
+    console.log(`[청소] 빈 방 ${cleaned}개 제거`);
+    io.emit('roomList', getRoomList());
+  }
+}, 30_000);
 
 io.on('connection', socket => {
   console.log(`[+] ${socket.id}`);

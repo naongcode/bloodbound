@@ -253,9 +253,9 @@ export default class LobbyScene extends Phaser.Scene {
     const barY = H - 58;
 
     // 룸 만들기 버튼
-    const createBtn = this.add.rectangle(W / 2 - 80, barY, 220, 40, 0x1a001a)
+    const createBtn = this.add.rectangle(W / 2 - 130, barY, 220, 40, 0x1a001a)
       .setStrokeStyle(2, 0x9b59b6).setInteractive({ useHandCursor: true });
-    const createTxt = this.add.text(W / 2 - 80, barY, '룸 만들기', {
+    const createTxt = this.add.text(W / 2 - 130, barY, '룸 만들기', {
       fontSize: '15px', fill: '#bb88ff', fontStyle: 'bold'
     }).setOrigin(0.5);
     createBtn.on('pointerover', () => createBtn.setFillStyle(0x2a0040));
@@ -263,9 +263,9 @@ export default class LobbyScene extends Phaser.Scene {
     createBtn.on('pointerdown', () => this._createRoom());
 
     // 직접 ID 참가 버튼
-    const directBtn = this.add.rectangle(W / 2 + 80, barY, 220, 40, 0x001a2a)
+    const directBtn = this.add.rectangle(W / 2 + 130, barY, 220, 40, 0x001a2a)
       .setStrokeStyle(2, 0x3498db).setInteractive({ useHandCursor: true });
-    const directTxt = this.add.text(W / 2 + 80, barY, 'ID로 참가', {
+    const directTxt = this.add.text(W / 2 + 130, barY, 'ID로 참가', {
       fontSize: '15px', fill: '#5dade2', fontStyle: 'bold'
     }).setOrigin(0.5);
     directBtn.on('pointerover', () => directBtn.setFillStyle(0x00243a));

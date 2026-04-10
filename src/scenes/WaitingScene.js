@@ -264,7 +264,12 @@ export default class WaitingScene extends Phaser.Scene {
 
   // ── 네트워크 이벤트 ─────────────────────────
   _setupNetworkEvents() {
-    Network.on('playerJoined', ({ room }) => {
+    const guard = fn => (...args) => {
+      if (!this.scene?.isActive('WaitingScene')) return;
+      fn(...args);
+    };
+
+    this._onPlayerJoined = guard(({ room }) => {
       this._room = room;
       Network.room = room;
       this._refreshPlayers();
@@ -272,7 +277,7 @@ export default class WaitingScene extends Phaser.Scene {
       if (newPlayer) this._addChatLine(`▶ ${newPlayer.name} 님이 입장했습니다.`, '#2ecc71');
     });
 
-    Network.on('playerLeft', ({ id, room }) => {
+    this._onPlayerLeft = guard(({ room }) => {
       this._room = room;
       Network.room = room;
       this._refreshPlayers();
@@ -280,16 +285,15 @@ export default class WaitingScene extends Phaser.Scene {
       this._addChatLine(`◀ 플레이어가 퇴장했습니다.`, '#e74c3c');
     });
 
-    Network.on('chatMsg', ({ name, msg }) => {
+    this._onChatMsg = guard(({ name, msg }) => {
       const isMe = (name === Network.playerName);
       this._addChatLine(`${name}: ${msg}`, isMe ? '#5dade2' : '#ccc');
     });
 
-    Network.on('gameStarted', ({ mode, room }) => {
+    this._onGameStarted = ({ mode, room }) => {
       Network.room = room;
       this.cameras.main.fadeOut(300, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        // DOM 입력창 제거
         ['nameInput', 'chatInput'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.blur();
@@ -302,6 +306,19 @@ export default class WaitingScene extends Phaser.Scene {
           this.scene.launch('UIScene', { gameScene: this.scene.get('GameScene') });
         }
       });
+    };
+
+    Network.on('playerJoined', this._onPlayerJoined);
+    Network.on('playerLeft',   this._onPlayerLeft);
+    Network.on('chatMsg',      this._onChatMsg);
+    Network.on('gameStarted',  this._onGameStarted);
+
+    // 씬 종료 시 리스너 정리
+    this.events.once('shutdown', () => {
+      Network.off('playerJoined', this._onPlayerJoined);
+      Network.off('playerLeft',   this._onPlayerLeft);
+      Network.off('chatMsg',      this._onChatMsg);
+      Network.off('gameStarted',  this._onGameStarted);
     });
   }
 }
