@@ -44,6 +44,11 @@ export default class UIScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-C', () => this.toggleCharPanel());
     // ESC 키 → 설정 메뉴 토글
     this.input.keyboard.on('keydown-ESC', () => this.toggleSettings());
+    // 1~4 키 → 포션 퀵슬롯
+    this.input.keyboard.on('keydown-ONE',   () => this._useQuickPotion(0));
+    this.input.keyboard.on('keydown-TWO',   () => this._useQuickPotion(1));
+    this.input.keyboard.on('keydown-THREE', () => this._useQuickPotion(2));
+    this.input.keyboard.on('keydown-FOUR',  () => this._useQuickPotion(3));
 
     this.inventoryOpen = false;
     this.charPanelOpen = false;
@@ -51,6 +56,18 @@ export default class UIScene extends Phaser.Scene {
     this.enhOpen       = false;
     this.settingsOpen  = false;
 
+    // 포션 퀵슬롯 정의 (고정 순서)
+    this._quickSlotDefs = [
+      { key: 'hp_potion_small',  label: '1' },
+      { key: 'hp_potion_medium', label: '2' },
+      { key: 'hp_potion_large',  label: '3' },
+      { key: 'mp_potion_small',  label: '4' },
+    ];
+    // 슬롯별 쿨타임 추적 (ms 단위 남은 시간)
+    this._quickSlotCdLeft = [0, 0, 0, 0];
+    this._quickSlotCdMax  = [5000, 5000, 8000, 5000];
+
+    this.buildPotionBar();
     this.buildShopPanel();
     this.buildEnhancePanel();
     this.buildSettingsPanel();
@@ -160,10 +177,86 @@ export default class UIScene extends Phaser.Scene {
   }
 
   // ════════════════════════════════════════════════
+  // 포션 퀵슬롯 바 (스킬 슬롯 오른쪽)
+  // ════════════════════════════════════════════════
+  buildPotionBar() {
+    const size   = 52;   // 슬롯 크기
+    const startX = 716;  // 스킬 슬롯(640) 오른쪽
+    const cy     = 672;
+    const gap    = 60;
+
+    this._pSlotCdGfx   = [];
+    this._pSlotCdText  = [];
+    this._pSlotCntText = [];
+    this._pSlotIcons   = [];
+
+    this._quickSlotDefs.forEach((def, i) => {
+      const cx   = startX + i * gap;
+      const isMp = def.key.startsWith('mp');
+      const clr  = isMp ? 0x2980b9 : 0xc0392b;
+
+      // 슬롯 배경
+      this.add.rectangle(cx, cy, size, size, 0x1a1a2e)
+        .setStrokeStyle(2, isMp ? 0x3498db : 0x884444);
+
+      // 아이템 아이콘 이미지
+      const icon = this.add.image(cx, cy, isMp ? 'item_potion_mp' : 'item_potion')
+        .setDisplaySize(size - 12, size - 12);
+      this._pSlotIcons.push(icon);
+
+      // 키 번호 라벨
+      this.add.text(cx - size / 2 + 3, cy - size / 2 + 1, def.label, {
+        fontSize: '10px', fill: '#aaaaaa',
+      });
+
+      // 이름 (슬롯 아래)
+      const shortName = isMp ? 'MP(소)' : ['HP(소)', 'HP(중)', 'HP(대)'][i];
+      this.add.text(cx, cy + size / 2 + 4, shortName, {
+        fontSize: '10px', fill: '#aaaaaa',
+      }).setOrigin(0.5, 0);
+
+      // 쿨타임 오버레이
+      const cdGfx = this.add.graphics();
+      this._pSlotCdGfx.push(cdGfx);
+
+      // 쿨타임 초 텍스트
+      const cdTxt = this.add.text(cx, cy, '', {
+        fontSize: '14px', fill: '#ffffff', fontStyle: 'bold',
+        stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5);
+      this._pSlotCdText.push(cdTxt);
+
+      // 수량 (우하단)
+      const cntTxt = this.add.text(cx + size / 2 - 2, cy + size / 2 - 2, '', {
+        fontSize: '11px', fill: '#ffffff', fontStyle: 'bold',
+        stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(1, 1);
+      this._pSlotCntText.push(cntTxt);
+    });
+  }
+
+  // ── 퀵슬롯 포션 사용 ──────────────────────────────────────────
+  _useQuickPotion(slot) {
+    if (this._quickSlotCdLeft[slot] > 0) return;
+    const p   = this.player;
+    const key = this._quickSlotDefs[slot].key;
+
+    // 인벤토리에서 해당 포션 슬롯 탐색
+    const invIdx = p.inventory.slots.findIndex(it => it && it.key === key);
+    if (invIdx < 0) return;
+
+    const ok = this.gameScene.inventorySystem.useItem(p, invIdx);
+    if (!ok) return;
+
+    // 쿨타임 시작
+    this._quickSlotCdLeft[slot] = this._quickSlotCdMax[slot];
+  }
+
+  // ════════════════════════════════════════════════
   // 인벤토리 패널
   // ════════════════════════════════════════════════
   buildInventoryPanel() {
-    const pw = 420, ph = 480;
+    const pw = 420, ph = 560;
     const px = 1280 - pw - 10, py = (720 - ph) / 2;
 
     this.invPanel = this.add.container(px, py).setVisible(false);
@@ -235,12 +328,12 @@ export default class UIScene extends Phaser.Scene {
     const divider = this.add.rectangle(0, equipY + 130, pw, 1, 0x444466).setOrigin(0);
     this.invPanel.add(divider);
 
-    // ── 인벤토리 그리드 (30칸, 8열) ─────────────────
+    // ── 인벤토리 그리드 (48칸, 8열 6행) ─────────────
     const gridX = 20, gridY = equipY + 140;
     const cellSize = 44, cols = 8;
     this.invSlotGfx = [];
 
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 48; i++) {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const cx  = gridX + col * (cellSize + 4);
@@ -309,8 +402,14 @@ export default class UIScene extends Phaser.Scene {
         fontSize: '15px', fill: '#f1c40f', fontStyle: 'bold',
       }).setInteractive({ useHandCursor: true });
       plusBtn.on('pointerdown', () => this.spendSkillPoint(k));
-      plusBtn.on('pointerover', () => plusBtn.setStyle({ fill: '#ffffff' }));
-      plusBtn.on('pointerout',  () => plusBtn.setStyle({ fill: '#f1c40f' }));
+      plusBtn.on('pointerover', () => {
+        plusBtn.setStyle({ fill: '#ffffff' });
+        this._showStatTooltip(k, i, px, py);
+      });
+      plusBtn.on('pointerout', () => {
+        plusBtn.setStyle({ fill: '#f1c40f' });
+        this._hideStatTooltip();
+      });
 
       this.charPanel.add([label, val, plusBtn]);
       this.statLines.push({ key: k, val, plusBtn });
@@ -375,6 +474,48 @@ export default class UIScene extends Phaser.Scene {
     }
 
     this.updateStatusIcons();
+    this.updatePotionBar();
+  }
+
+  updatePotionBar() {
+    if (!this._pSlotCdGfx) return;
+    const p      = this.player;
+    const size   = 52;
+    const startX = 716;
+    const cy     = 672;
+    const gap    = 60;
+    const delta  = this.game.loop.delta; // ms since last frame
+
+    this._quickSlotDefs.forEach((def, i) => {
+      const cx = startX + i * gap;
+
+      // 쿨타임 감소
+      if (this._quickSlotCdLeft[i] > 0) {
+        this._quickSlotCdLeft[i] = Math.max(0, this._quickSlotCdLeft[i] - delta);
+      }
+
+      // 수량 표시
+      const invItem = p.inventory.slots.find(it => it && it.key === def.key);
+      const qty = invItem ? invItem.quantity : 0;
+      this._pSlotCntText[i].setText(qty > 0 ? `×${qty}` : '');
+
+      // 아이콘 투명도 (없으면 흐림)
+      this._pSlotIcons[i].setAlpha(qty > 0 ? 1 : 0.3);
+
+      // 쿨타임 오버레이
+      const cdGfx = this._pSlotCdGfx[i];
+      cdGfx.clear();
+      const cd    = this._quickSlotCdLeft[i];
+      const maxCd = this._quickSlotCdMax[i];
+      if (cd > 0) {
+        const pct = cd / maxCd;
+        cdGfx.fillStyle(0x000000, 0.65);
+        cdGfx.fillRect(cx - (size - 12) / 2, cy - (size - 12) / 2, size - 12, (size - 12) * pct);
+        this._pSlotCdText[i].setText(`${(cd / 1000).toFixed(1)}`);
+      } else {
+        this._pSlotCdText[i].setText('');
+      }
+    });
   }
 
   updateStatusIcons() {
@@ -480,12 +621,114 @@ export default class UIScene extends Phaser.Scene {
   spendSkillPoint(stat) {
     const p = this.player;
     if (p.skillPoints <= 0) return;
+
+    // 변화 전 수치 저장
+    const beforeHp = p.maxHp, beforeMp = p.maxMp;
+
     p.skillPoints--;
-    p.stats[stat]    = (p.stats[stat]    || 0) + 1;
+    p.stats[stat]     = (p.stats[stat]    || 0) + 1;
     p.baseStats[stat] = (p.baseStats[stat] || 0) + 1;
     this.gameScene.inventorySystem.recalcStats(p);
     this.refreshCharPanel();
     this.gameScene.events.emit('statsChanged', p);
+
+    // 배분 결과 플로팅 텍스트 (스탯 패널 우측)
+    this._showStatUpFeedback(stat, p, beforeHp, beforeMp);
+    this._hideStatTooltip(); // 툴팁 닫기
+  }
+
+  _showStatUpFeedback(stat, p, beforeHp, beforeMp) {
+    const EFFECTS = {
+      STR: `물리 공격력 +2.5`,
+      AGI: `이동속도 +1 / 치명타율↑`,
+      INT: `마법 위력 +3.0`,
+      VIT: `최대 HP  ${beforeHp} → ${p.maxHp}`,
+      WIS: `최대 MP  ${beforeMp} → ${p.maxMp}`,
+      RES: `흡혈·상태이상 저항↑`,
+    };
+    const msg = `${stat} +1    ${EFFECTS[stat] || ''}`;
+
+    if (this._statFeedbackTxt) this._statFeedbackTxt.destroy();
+    this._statFeedbackTxt = this.add.text(240, 200, msg, {
+      fontSize: '13px', fill: '#f1c40f', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0, 0).setDepth(500).setScrollFactor(0);
+
+    this.tweens.add({
+      targets: this._statFeedbackTxt,
+      y: 175, alpha: 0,
+      duration: 1400,
+      ease: 'Power1',
+      onComplete: () => {
+        if (this._statFeedbackTxt) { this._statFeedbackTxt.destroy(); this._statFeedbackTxt = null; }
+      },
+    });
+  }
+
+  // ── 스탯 호버 툴팁 ─────────────────────────────────────────
+  _showStatTooltip(stat, rowIndex, panelX, panelY) {
+    this._hideStatTooltip();
+    const p = this.player;
+    if (!p || p.skillPoints <= 0) return;
+
+    const lines = this._getStatEffectLines(stat, p);
+    const tx = panelX + 225;   // 패널 우측
+    const ty = panelY + 36 + rowIndex * 28;
+    const tw = 175, lh = 16;
+    const th = 22 + lines.length * lh;
+
+    const bg = this.add.rectangle(tx, ty, tw, th, 0x0a0a1e, 0.96)
+      .setOrigin(0).setStrokeStyle(1, 0xf1c40f, 0.9).setDepth(500).setScrollFactor(0);
+
+    const header = this.add.text(tx + tw / 2, ty + 4, `${stat}  +1 효과`, {
+      fontSize: '11px', fill: '#f1c40f', fontStyle: 'bold',
+    }).setOrigin(0.5, 0).setDepth(500).setScrollFactor(0);
+
+    const body = lines.map((line, i) =>
+      this.add.text(tx + 8, ty + 18 + i * lh, line, {
+        fontSize: '11px', fill: '#dddddd',
+      }).setDepth(500).setScrollFactor(0)
+    );
+
+    this._statTooltip = [bg, header, ...body];
+  }
+
+  _hideStatTooltip() {
+    if (this._statTooltip) {
+      this._statTooltip.forEach(o => o.destroy());
+      this._statTooltip = null;
+    }
+  }
+
+  _getStatEffectLines(stat, p) {
+    const t = p.totalStats;
+    switch (stat) {
+      case 'STR': return [
+        `물리 공격력 +2.5`,
+        `현재 기여: ${Math.floor((t.STR || 0) * 2.5)}  →  ${Math.floor(((t.STR || 0) + 1) * 2.5)}`,
+      ];
+      case 'AGI': return [
+        `이동속도 +1`,
+        `치명타율 +0.05%`,
+      ];
+      case 'INT': return [
+        `마법 위력 +3.0`,
+        `현재 기여: ${Math.floor((t.INT || 0) * 3.0)}  →  ${Math.floor(((t.INT || 0) + 1) * 3.0)}`,
+      ];
+      case 'VIT': return [
+        `최대 HP +20`,
+        `${p.maxHp}  →  ${p.maxHp + 20}`,
+      ];
+      case 'WIS': return [
+        `최대 MP +15`,
+        `${p.maxMp}  →  ${p.maxMp + 15}`,
+      ];
+      case 'RES': return [
+        `흡혈 저항↑`,
+        `상태이상 지속시간↓`,
+      ];
+      default: return [];
+    }
   }
 
   // ════════════════════════════════════════════════
@@ -671,12 +914,14 @@ export default class UIScene extends Phaser.Scene {
     this.shopPanel.add(this.shopBuyContainer);
 
     const SHOP_ITEMS = [
-      { key: 'hp_potion_small',  price: 50  },
-      { key: 'hp_potion_medium', price: 200 },
-      { key: 'iron_sword',       price: 150 },
-      { key: 'leather_armor',    price: 120 },
-      { key: 'soldiers_sword',   price: 500 },
-      { key: 'resistance_ring',  price: 800 },
+      { key: 'hp_potion_small',  price: 50   },
+      { key: 'hp_potion_medium', price: 200  },
+      { key: 'hp_potion_large',  price: 500  },
+      { key: 'mp_potion_small',  price: 80   },
+      { key: 'iron_sword',       price: 150  },
+      { key: 'leather_armor',    price: 120  },
+      { key: 'soldiers_sword',   price: 500  },
+      { key: 'resistance_ring',  price: 1200 },
     ];
 
     SHOP_ITEMS.forEach((si, i) => {
@@ -786,8 +1031,9 @@ export default class UIScene extends Phaser.Scene {
       return unitPrice * (item.quantity ?? 1);
     }
     if (item.type === 'equipment') {
-      const gradeVal = { common: 1, uncommon: 3, rare: 10, epic: 30, legendary: 80, abyss: 150 };
-      return Math.floor((item.requiredLevel ?? 1) * 8 * (gradeVal[item.grade] ?? 1));
+      // 판매가 = 레벨 × 2 × 등급배율 (구매가의 20~30% 수준 유지)
+      const gradeVal = { common: 2, uncommon: 5, rare: 8, epic: 20, legendary: 50, abyss: 100 };
+      return Math.max(5, Math.floor((item.requiredLevel ?? 1) * 2 * (gradeVal[item.grade] ?? 2)));
     }
     return 10;
   }

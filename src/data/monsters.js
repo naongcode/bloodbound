@@ -125,6 +125,7 @@ export const MONSTER_DATA = {
     baseHp: 900,
     baseDamage: 85,
     defense: 45,
+    magicResist: 20,   // 돌 몸체라 마법에 둔감
     speed: 45,
     xpReward: 450,
     goldReward: { min: 110, max: 200 },
@@ -160,6 +161,7 @@ export const MONSTER_DATA = {
     baseHp: 650,
     baseDamage: 110,
     defense: 30,
+    magicResist: 35,   // 어둠 속성 기사, 마법 저항 높음
     speed: 88,
     xpReward: 550,
     goldReward: { min: 130, max: 240 },
@@ -197,6 +199,7 @@ export const MONSTER_DATA = {
     baseHp: 500,
     baseDamage: 70,
     defense: 25,
+    magicResist: 25,   // 혈족 특수 훈련, 마법 어느 정도 버팀
     speed: 80,
     xpReward: 300,
     goldReward: { min: 80, max: 150 },
@@ -223,6 +226,32 @@ export const MONSTER_DATA = {
       { itemKey: 'blood_signet',    chance: 0.07, quantity: [1, 1] },
       { itemKey: 'bloodkin_blade',  chance: 0.05, quantity: [1, 1] },
     ]
+  },
+
+  // 혈계 고블린 — 빠르게 도망다니는 XP원
+  blood_goblin: {
+    key: 'blood_goblin',
+    name: '혈계 고블린',
+    texture: 'monster_goblin',
+    level: 12,
+    baseHp: 65,
+    baseDamage: 10,
+    defense: 2,
+    speed: 195,             // 맵 내 최고속 — 따라잡기 어려움
+    xpReward: 180,          // HP 대비 높은 XP — 잡을 가치 있음
+    goldReward: { min: 20, max: 50 },
+    drainRate: 0,
+    drainType: 'normal',
+    attackRange: 32,
+    attackCooldown: 2500,
+    aggroRange: 300,        // 일찍 눈치챔
+    isGoblin: true,         // AI 분기 플래그
+    patterns: [],
+    dropTable: [
+      { itemKey: 'blood_crystal', chance: 0.6,  quantity: [1, 2] },
+      { itemKey: 'iron_ore',      chance: 0.4,  quantity: [1, 2] },
+      { itemKey: 'leather',       chance: 0.3,  quantity: [1, 1] },
+    ],
   },
 
   // 원거리 몬스터 1 — 혈령 궁수 (중간 레벨, 화살 발사)
@@ -263,6 +292,7 @@ export const MONSTER_DATA = {
     baseHp: 180,
     baseDamage: 28,
     defense: 5,
+    magicResist: 45,   // 마법사 본인이 마법 사용자라 마법 저항 최고
     speed: 55,
     xpReward: 120,
     goldReward: { min: 35, max: 65 },
@@ -283,6 +313,73 @@ export const MONSTER_DATA = {
     ]
   },
 };
+
+// ── 누적 처치 특별 몬스터 (25킬마다 등장, 웨이브 누적 강화) ──────────
+export const HUNTER_WAVES = [
+  {
+    // 25킬 — 혈맹 사냥꾼
+    name: '혈맹 사냥꾼',
+    texture: 'monster_bloodkin',
+    hpMult: 3.0, dmgMult: 2.0, speedMult: 1.3,
+    tint: 0xff4488,
+    xpReward: 400, goldReward: { min: 80, max: 150 },
+    defense: 20, magicResist: 15,
+    dropTable: [
+      { itemKey: 'blood_crystal',  chance: 1.0, quantity: [3, 5] },
+      { itemKey: 'abyss_stone',    chance: 0.5, quantity: [1, 2] },
+      { itemKey: 'bloodkin_blade', chance: 0.15, quantity: [1, 1] },
+    ],
+  },
+  {
+    // 50킬 — 혈족 집행관
+    name: '혈족 집행관',
+    texture: 'monster_shadowknight',
+    hpMult: 4.5, dmgMult: 2.8, speedMult: 1.2,
+    tint: 0xcc00ff,
+    xpReward: 800, goldReward: { min: 160, max: 280 },
+    defense: 35, magicResist: 30,
+    dropTable: [
+      { itemKey: 'blood_crystal',   chance: 1.0, quantity: [5, 8] },
+      { itemKey: 'abyss_stone',     chance: 0.7, quantity: [2, 3] },
+      { itemKey: 'bloodbound_armor',chance: 0.15, quantity: [1, 1] },
+      { itemKey: 'bloodkin_blade',  chance: 0.12, quantity: [1, 1] },
+    ],
+  },
+  {
+    // 75킬 — 혈왕의 종
+    name: '혈왕의 종',
+    texture: 'monster_golem',
+    hpMult: 6.5, dmgMult: 3.5, speedMult: 0.9,
+    tint: 0xff2200,
+    xpReward: 1400, goldReward: { min: 280, max: 450 },
+    defense: 55, magicResist: 40,
+    defenseState: { trigger: 0.5, type: 'physical_barrier' },
+    dropTable: [
+      { itemKey: 'blood_crystal',   chance: 1.0, quantity: [6, 10] },
+      { itemKey: 'abyss_stone',     chance: 0.8, quantity: [2, 4] },
+      { itemKey: 'demon_blade',     chance: 0.12, quantity: [1, 1] },
+      { itemKey: 'abyss_plate',     chance: 0.10, quantity: [1, 1] },
+    ],
+  },
+  {
+    // 100킬+ — 혈계의 군주 (이후 반복, 점점 강해짐)
+    name: '혈계의 군주',
+    texture: 'monster_shadowknight',
+    hpMult: 9.0, dmgMult: 4.5, speedMult: 1.1,
+    tint: 0x880000,
+    xpReward: 2500, goldReward: { min: 500, max: 800 },
+    defense: 70, magicResist: 55,
+    defenseState: { trigger: 'periodic', interval: 8000, type: 'full_guard' },
+    dropTable: [
+      { itemKey: 'blood_crystal',   chance: 1.0, quantity: [8, 14] },
+      { itemKey: 'abyss_stone',     chance: 1.0, quantity: [3, 5] },
+      { itemKey: 'demon_blade',     chance: 0.20, quantity: [1, 1] },
+      { itemKey: 'void_bow',        chance: 0.15, quantity: [1, 1] },
+      { itemKey: 'void_staff',      chance: 0.15, quantity: [1, 1] },
+      { itemKey: 'abyss_crown',     chance: 0.12, quantity: [1, 1] },
+    ],
+  },
+];
 
 export const MONSTER_SPAWN_TABLES = {
   plains: [

@@ -86,8 +86,13 @@ export default class DungeonScene extends Phaser.Scene {
     this.setupEvents();
     this.buildHUD();
 
-    // UIScene 실행 (스킬 쿨타임 HUD, 인벤토리 등)
+    // ── 던전 BGM ──────────────────────────────────────────────
+    this._bgm = this.sound.add('bgm_dungeon', { loop: true, volume: 0.4 });
+    this._bgm.play();
+
+    // UIScene 실행 (스킬 쿨타임 HUD, 인벤토리 등) — 반드시 DungeonScene 위에 렌더링
     this.scene.launch('UIScene', { gameScene: this });
+    this.scene.bringToTop('UIScene');
 
     // ESC → 귀환
     this.input.keyboard.on('keydown-ESC', () => this.exitDungeon());
@@ -171,6 +176,7 @@ export default class DungeonScene extends Phaser.Scene {
 
     this.showWaveBanner(wave.label, wave.boss);
     this.updateWaveHUD();
+    if (wave.boss) this.sound.play('sfx_boss_popup', { volume: 0.7 });
 
     // 기존 몬스터 정리
     this.monsters.getChildren().forEach(m => { if (m.active) m.destroy(); });
@@ -289,6 +295,7 @@ export default class DungeonScene extends Phaser.Scene {
   openChest() {
     if (this._chestOpened) return;
     this._chestOpened = true;
+    this.sound.play('sfx_item_box', { volume: 0.65 });
 
     // 보상 목록: 골드 + 랜덤 아이템 (난이도 배율 적용)
     const cfg        = this._diffCfg || DIFF_TABLE[1];
@@ -368,6 +375,10 @@ export default class DungeonScene extends Phaser.Scene {
       this.handleMonsterDeath(monster);
       // 보스 HP바 갱신
       if (monster === this._bossTarget) this._bossTarget = null;
+      if (monster.isBoss) {
+        this._bgm?.stop();
+        this.sound.play('sfx_dungeon_boss_die', { volume: 0.7 });
+      }
       // 웨이브 클리어 체크 (약간 딜레이)
       this.time.delayedCall(500, () => this.checkWaveCleared());
     });
@@ -395,6 +406,13 @@ export default class DungeonScene extends Phaser.Scene {
 
     this.events.on('defenseBreak', ({ monster }) => {
       this.showFloatText(monster.x, monster.y - 40, '방어 파훼!', '#f39c12', '16px');
+    });
+
+    this.events.on('thornReflect', ({ damage }) => {
+      if (this.player?.isAlive) {
+        this.player.takeDamage(damage, 0, null);
+        this.showFloatText(this.player.x, this.player.y - 30, `↩ ${damage}`, '#e67e22', '13px');
+      }
     });
 
     this.events.on('monsterEnraged', ({ monster }) => {
@@ -701,7 +719,13 @@ export default class DungeonScene extends Phaser.Scene {
 
     this.input.keyboard.once('keydown-R', () => {
       overlay.destroy(); t1.destroy(); t2.destroy();
-      this.scene.restart({ jobKey: this._jobKey });
+      // 재도전 전 HP/MP 풀 회복 저장 (0HP로 로드되는 버그 방지)
+      if (this.player && this._charId) {
+        this.player.hp = this.player.maxHp;
+        this.player.mp = this.player.maxMp;
+        SaveSystem.saveChar(this._charId, this.player);
+      }
+      this.scene.restart({ jobKey: this._jobKey, charId: this._charId, loadSave: !!this._charId });
     });
   }
 
@@ -712,11 +736,13 @@ export default class DungeonScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.stop('UIScene');
-      this.scene.stop('DungeonScene');
       if (this._isMulti) {
+        this.scene.stop('DungeonScene');
         this.scene.start('LobbyScene', { jobKey: this._jobKey, charId: this._charId });
       } else {
-        this.scene.start('GameScene', { jobKey: this._jobKey, charId: this._charId, loadSave: true });
+        // 잠든 GameScene을 깨움 (재생성 없음) → wake 핸들러에서 UIScene 재시작 + 세이브 반영
+        this.scene.wake('GameScene', { loadSave: save });
+        this.scene.stop('DungeonScene');
       }
     });
   }

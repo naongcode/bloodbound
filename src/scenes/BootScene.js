@@ -26,6 +26,16 @@ export default class BootScene extends Phaser.Scene {
 
     // 절차적 텍스처 생성 (실제 이미지 없이 실행 가능)
     this.createProceduralTextures();
+
+    // 절차적 효과음 생성 (오디오 파일 없이 실행 가능)
+    this.createProceduralSounds();
+
+    // 실제 사운드 파일 로드
+    this.load.audio('bgm_field',         'assets/sounds/1. dungeon bgm - jojos-golden-wind_kL2WElB.mp3');
+    this.load.audio('bgm_dungeon',        'assets/sounds/11. base bgm - passo-bem-solto-slowed.mp3');
+    this.load.audio('sfx_boss_popup',     'assets/sounds/3. dungeon boss popup - gongseubgyeongbo_lfHPliG.mp3');
+    this.load.audio('sfx_item_box',       'assets/sounds/4. dungeon item box - ta-da_yrvBrlS.mp3');
+    this.load.audio('sfx_dungeon_boss_die','assets/sounds/8. dungeon boss died - jabassjyo.mp3');
   }
 
   createProceduralTextures() {
@@ -123,6 +133,15 @@ export default class BootScene extends Phaser.Scene {
       g.fillStyle(0x1a5c30); g.fillRect(5, 12, 3, 14);   // 활대
       g.lineStyle(1, 0xd4b896); g.lineBetween(5, 13, 5, 25); // 시위
       g.fillStyle(0xe74c3c); g.fillCircle(13, 6, 1.5); g.fillCircle(19, 6, 1.5); // 눈
+    }},
+    // 혈계 고블린 — 작은 초록 몸통, 귀 크게
+    { key: 'monster_goblin', draw(g) {
+      g.fillStyle(0x27ae60); g.fillEllipse(16, 20, 14, 16);   // 몸통
+      g.fillStyle(0x1e8449); g.fillCircle(16, 11, 7);         // 머리
+      g.fillTriangle(9,  8,  6,  1, 13, 8);   // 왼쪽 귀 (뾰족)
+      g.fillTriangle(23, 8, 19,  8, 26, 1);   // 오른쪽 귀
+      g.fillStyle(0xff4444); g.fillCircle(13, 10, 2); g.fillCircle(19, 10, 2); // 눈
+      g.fillStyle(0xf39c12); g.fillRect(13, 14, 6, 2);        // 이빨
     }},
     // 독액 마법사 — 어두운 보라 로브 + 지팡이
     { key: 'monster_mage', draw(g) {
@@ -290,6 +309,19 @@ export default class BootScene extends Phaser.Scene {
       g.fillStyle(0xe74c3c); g.fillEllipse(12, 15, 14, 16); // 병몸통
       g.fillStyle(0xff8a8a, 0.4); g.fillEllipse(9, 12, 4, 6); // 광택
     });
+    // HP 포션 (대) — 더 크고 진한 빨강
+    _mkItem('item_potion_large', g => {
+      g.fillStyle(0x7f8c8d); g.fillRect(9, 1, 6, 5);
+      g.fillStyle(0xc0392b); g.fillEllipse(12, 14, 17, 19);
+      g.fillStyle(0xe74c3c, 0.5); g.fillEllipse(9, 10, 5, 7);
+      g.fillStyle(0xffffff, 0.2); g.fillEllipse(15, 18, 4, 4);
+    });
+    // MP 포션 (소) — 파란 병
+    _mkItem('item_potion_mp', g => {
+      g.fillStyle(0x7f8c8d); g.fillRect(10, 2, 5, 4);
+      g.fillStyle(0x2980b9); g.fillEllipse(12, 15, 14, 16);
+      g.fillStyle(0x74b9ff, 0.5); g.fillEllipse(9, 12, 4, 6);
+    });
 
     // 재료 텍스처 — 장비와 구별되는 전용 아이콘
     // 철 광석 — 회색 덩어리
@@ -376,6 +408,127 @@ export default class BootScene extends Phaser.Scene {
     blood.fillCircle(4, 4, 4);
     blood.generateTexture('particle_blood', 8, 8);
     blood.destroy();
+  }
+
+  // ── 절차적 효과음 생성 ─────────────────────────────────────
+  createProceduralSounds() {
+    const ctx = this.sound.context;
+    if (!ctx) return;
+
+    const mk = (duration, fn) => {
+      const sr  = ctx.sampleRate;
+      const buf = ctx.createBuffer(1, Math.floor(sr * duration), sr);
+      fn(buf.getChannelData(0), sr);
+      return buf;
+    };
+    const add = (key, buf) => this.cache.audio.add(key, buf);
+
+    // 1. 근접 공격 — 충격음 (노이즈 + 저음 펄스)
+    add('sfx_melee', mk(0.15, (d, sr) => {
+      for (let i = 0; i < d.length; i++) {
+        const t = i / sr;
+        const e = Math.exp(-t * 25);
+        d[i] = (Math.random() * 2 - 1) * e * 0.7
+              + Math.sin(2 * Math.PI * 110 * t) * e * 0.5;
+      }
+    }));
+
+    // 2. 원거리 발사 — 상승 "삐" (주파수 스윕)
+    add('sfx_shoot', mk(0.12, (d, sr) => {
+      for (let i = 0; i < d.length; i++) {
+        const t = i / sr;
+        const e = Math.exp(-t * 20);
+        d[i] = Math.sin(2 * Math.PI * (500 + 1000 * (t / 0.12)) * t) * e * 0.55;
+      }
+    }));
+
+    // 3. 몬스터 피격 — 금속성 타격
+    add('sfx_hit_monster', mk(0.1, (d, sr) => {
+      for (let i = 0; i < d.length; i++) {
+        const t = i / sr;
+        const e = Math.exp(-t * 40);
+        d[i] = (Math.random() * 2 - 1) * e * 0.5
+              + Math.sin(2 * Math.PI * 280 * t) * e * 0.4;
+      }
+    }));
+
+    // 4. 플레이어 피격 — 둔탁한 저음 타격
+    add('sfx_hit_player', mk(0.22, (d, sr) => {
+      for (let i = 0; i < d.length; i++) {
+        const t = i / sr;
+        const e = Math.exp(-t * 14);
+        d[i] = (Math.random() * 2 - 1) * e * 0.35
+              + Math.sin(2 * Math.PI * 75 * t) * e * 0.7;
+      }
+    }));
+
+    // 5. 몬스터 사망 — 하강 노이즈
+    add('sfx_monster_die', mk(0.35, (d, sr) => {
+      for (let i = 0; i < d.length; i++) {
+        const t = i / sr;
+        const e = Math.exp(-t * 9);
+        const f = 200 - 130 * (t / 0.35);
+        d[i] = (Math.random() * 2 - 1) * e * 0.3
+              + Math.sin(2 * Math.PI * f * t) * e * 0.5;
+      }
+    }));
+
+    // 6. 보스 사망 — 폭발 + 여운
+    add('sfx_boss_die', mk(1.0, (d, sr) => {
+      for (let i = 0; i < d.length; i++) {
+        const t = i / sr;
+        const e = Math.exp(-t * 4);
+        d[i] = ((Math.random() * 2 - 1) * 0.4
+              + Math.sin(2 * Math.PI * 55 * t) * 0.45
+              + Math.sin(2 * Math.PI * 85 * t) * 0.3) * e;
+      }
+    }));
+
+    // 7. 레벨업 — 상승 아르페지오 (C5→E5→G5→C6)
+    add('sfx_levelup', mk(0.7, (d, sr) => {
+      const notes = [523, 659, 784, 1047];
+      const step  = 0.175;
+      for (let i = 0; i < d.length; i++) {
+        const t  = i / sr;
+        const ni = Math.min(Math.floor(t / step), 3);
+        const nt = t - ni * step;
+        const e  = Math.exp(-nt * 10);
+        d[i] = Math.sin(2 * Math.PI * notes[ni] * t) * e * 0.6;
+      }
+    }));
+
+    // 8. 플레이어 사망 — 하강 드론
+    add('sfx_player_die', mk(1.1, (d, sr) => {
+      for (let i = 0; i < d.length; i++) {
+        const t = i / sr;
+        const e = Math.exp(-t * 2.8);
+        const f = 280 - 200 * (t / 1.1);
+        d[i] = Math.sin(2 * Math.PI * f * t) * e * 0.5
+              + Math.sin(2 * Math.PI * (f * 0.5) * t) * e * 0.3;
+      }
+    }));
+
+    // 9. 스킬 발동 — 에너지 스윕
+    add('sfx_skill', mk(0.38, (d, sr) => {
+      for (let i = 0; i < d.length; i++) {
+        const t = i / sr;
+        const e = Math.sin(Math.PI * t / 0.38);
+        const f = 180 + 700 * Math.pow(t / 0.38, 0.5);
+        d[i] = Math.sin(2 * Math.PI * f * t) * e * 0.55
+              + (Math.random() * 2 - 1) * e * 0.12;
+      }
+    }));
+
+    // 10. 구르기 — 빠른 스윙 노이즈
+    add('sfx_dodge', mk(0.18, (d, sr) => {
+      for (let i = 0; i < d.length; i++) {
+        const t = i / sr;
+        const e = Math.sin(Math.PI * t / 0.18);
+        const f = 350 + 200 * Math.sin(Math.PI * t / 0.09);
+        d[i] = (Math.random() * 2 - 1) * e * 0.35
+              + Math.sin(2 * Math.PI * f * t) * e * 0.28;
+      }
+    }));
   }
 
   init(data) {

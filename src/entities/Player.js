@@ -35,7 +35,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
     // ── 인벤토리 ────────────────────────────────────────────
     this.inventory = {
-      slots: new Array(30).fill(null),
+      slots: new Array(48).fill(null),
       equipment: {
         weapon: null, helmet: null, armor: null, pants: null,
         gloves: null, boots: null, ring1: null, ring2: null, necklace: null
@@ -101,6 +101,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.updateStatusEffects(delta);
     this.updateAttackCooldown(delta);
     this.handleKeyboardShoot();
+    this.handleAutoAttack();
     this.handleSkill();
     this.drawAimLine();
   }
@@ -137,6 +138,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     if (Phaser.Input.Keyboard.JustDown(this.keys.dodge) && this.dodgeCooldown <= 0) {
       this.isDodging = true;
       this.dodgeCooldown = 2000;
+      this.scene.sound.play('sfx_dodge', { volume: 0.5 });
 
       // 이동 방향으로 빠르게 이동
       const vx = this.body.velocity.x || 0;
@@ -243,6 +245,33 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this._aimLine.moveTo(this.x, this.y);
       this._aimLine.lineTo(this.x + Math.cos(angle) * 56, this.y + Math.sin(angle) * 56);
       this._aimLine.strokePath();
+    }
+  }
+
+  // ── 자동 공격 ────────────────────────────────────────────────
+  handleAutoAttack() {
+    if (this.attackCooldown > 0) return;
+
+    const monstersGroup = this.scene.monsters;
+    if (!monstersGroup) return;
+
+    const monsters = monstersGroup.getChildren ? monstersGroup.getChildren() : [];
+    const range = this.attackType === 'melee' ? this.attackRange : this.projectileRange;
+
+    let nearest = null;
+    let nearestDist = Infinity;
+
+    for (const m of monsters) {
+      if (!m.isAlive) continue;
+      const dist = Phaser.Math.Distance.Between(this.x, this.y, m.x, m.y);
+      if (dist <= range && dist < nearestDist) {
+        nearestDist = dist;
+        nearest = m;
+      }
+    }
+
+    if (nearest) {
+      this.shoot(nearest.x, nearest.y);
     }
   }
 

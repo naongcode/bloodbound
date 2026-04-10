@@ -7,7 +7,7 @@ import InventorySystem from '../systems/InventorySystem.js';
 import SaveSystem from '../systems/SaveSystem.js';
 import Network from '../systems/NetworkManager.js';
 import { guildSystem } from '../systems/GuildSystem.js';
-import { MONSTER_DATA } from '../data/monsters.js';
+import { MONSTER_DATA, HUNTER_WAVES } from '../data/monsters.js';
 import { ITEM_DATA } from '../data/items.js';
 
 const MAP_W = 3200;
@@ -65,6 +65,10 @@ export default class GameScene extends Phaser.Scene {
     this.monsters = this.add.group();
     this.spawnInitialMonsters();
 
+    // ── 누적 처치 카운터 ─────────────────────────────────────
+    this._killCount      = 0;  // 총 누적 처치 수
+    this._hunterWaveIdx  = 0;  // 다음 등장할 HUNTER_WAVES 인덱스
+
     // ── 활성 투사체 목록 ─────────────────────────────────────
     this._bullets = [];
 
@@ -82,6 +86,7 @@ export default class GameScene extends Phaser.Scene {
 
     // ── UI 씬 시작 ────────────────────────────────────────────
     this.scene.launch('UIScene', { gameScene: this });
+    this.scene.bringToTop('UIScene');
 
     // ── 몬스터 리스폰 타이머 ──────────────────────────────────
     this.time.addEvent({ delay: 10000, loop: true, callback: this.respawnMonsters, callbackScope: this });
@@ -103,6 +108,29 @@ export default class GameScene extends Phaser.Scene {
 
     // ── 멀티플레이 ────────────────────────────────────────────
     if (this._isMulti) this.setupMultiplayer();
+
+    // ── 필드 BGM ──────────────────────────────────────────────
+    this._bgm = this.sound.add('bgm_field', { loop: true, volume: 0.35 });
+    this._bgm.play();
+
+    // ── 씬 복귀(wake) 처리 ────────────────────────────────────
+    // sleep → wake 시 create()는 호출되지 않으므로 여기서 UIScene 재실행
+    this.events.on('wake', (_sys, data) => {
+      this.scene.launch('UIScene', { gameScene: this });
+      this.scene.bringToTop('UIScene');
+      this.cameras.main.fadeIn(300, 0, 0, 0);
+      if (!this._bgm.isPlaying) this._bgm.play();
+      // 던전에서 돌아온 경우 세이브 데이터 반영
+      if (data?.loadSave && this._charId) {
+        SaveSystem.loadChar(this._charId).then(saveData => {
+          if (saveData) {
+            SaveSystem.apply(this.player, saveData, this.inventorySystem);
+            this.events.emit('statsChanged', this.player);
+            this.events.emit('inventoryChanged', this.player.inventory);
+          }
+        }).catch(e => console.warn('[GameScene] wake 세이브 로드 실패:', e));
+      }
+    });
   }
 
   // ── 월드 빌드 ─────────────────────────────────────────────
@@ -150,14 +178,16 @@ export default class GameScene extends Phaser.Scene {
   // ── 몬스터 스폰 ──────────────────────────────────────────
   spawnInitialMonsters() {
     const spawnList = [
-      { key: 'blood_slime',    count: 15 },
-      { key: 'blood_bat',      count: 10 },
-      { key: 'blood_archer',   count: 8,  minDist: 400 },
-      { key: 'bloodfang_wolf', count: 5,  minDist: 600 },
-      { key: 'crimson_spider', count: 5,  minDist: 500 },
-      { key: 'poison_mage',    count: 4,  minDist: 700 },
-      { key: 'blood_golem',    count: 3,  minDist: 800, outerZone: true },
-      { key: 'shadow_knight',  count: 3,  minDist: 800, outerZone: true },
+      { key: 'blood_slime',    count: 25 },
+      { key: 'blood_bat',      count: 18 },
+      { key: 'blood_archer',   count: 14, minDist: 400 },
+      { key: 'bloodfang_wolf', count: 10, minDist: 600 },
+      { key: 'crimson_spider', count: 10, minDist: 500 },
+      { key: 'poison_mage',    count: 7,  minDist: 700 },
+      { key: 'blood_golem',    count: 5,  minDist: 800, outerZone: true },
+      { key: 'shadow_knight',  count: 5,  minDist: 800, outerZone: true },
+      { key: 'blood_kin',      count: 4,  minDist: 800, outerZone: true, noElite: true },
+      { key: 'blood_goblin',   count: 8,  minDist: 300, noElite: true },
     ];
 
     spawnList.forEach(({ key, count, minDist }) => {
@@ -221,7 +251,7 @@ export default class GameScene extends Phaser.Scene {
 
   respawnMonsters() {
     const alive   = this.monsters.getChildren().filter(m => m.isAlive).length;
-    const toSpawn = Math.max(0, 20 - alive);
+    const toSpawn = Math.max(0, 35 - alive);
     for (let i = 0; i < toSpawn; i++) {
       const roll = Math.random();
       let key, opts;
@@ -230,8 +260,9 @@ export default class GameScene extends Phaser.Scene {
       else if (roll < 0.60) { key = 'crimson_spider'; opts = { minDist: 400 }; }
       else if (roll < 0.75) { key = 'bloodfang_wolf'; opts = { minDist: 500 }; }
       else if (roll < 0.87) { key = 'blood_golem';    opts = { minDist: 700, outerZone: true }; }
-      else if (roll < 0.95) { key = 'shadow_knight';  opts = { minDist: 700, outerZone: true }; }
-      else                  { key = 'blood_kin';      opts = { minDist: 700, noElite: true }; }
+      else if (roll < 0.91) { key = 'shadow_knight';  opts = { minDist: 700, outerZone: true }; }
+      else if (roll < 0.97) { key = 'blood_kin';      opts = { minDist: 700, noElite: true }; }
+      else                  { key = 'blood_goblin';   opts = { minDist: 200, noElite: true }; }
       this.spawnMonster(key, opts);
     }
   }
@@ -241,7 +272,7 @@ export default class GameScene extends Phaser.Scene {
     // 중복 등록 방지: 씬 재시작 시 기존 핸들러 먼저 제거
     ['playerShoot','playerMelee','monsterDied','levelUp','playerDied',
      'playerSkill','skillFailed','defenseBreak','monsterEnraged','monsterShoot',
-     'equipmentChanged','inventoryChanged','statsChanged'].forEach(ev => {
+     'thornReflect','equipmentChanged','inventoryChanged','statsChanged'].forEach(ev => {
       this.events.off(ev);
     });
 
@@ -274,6 +305,7 @@ export default class GameScene extends Phaser.Scene {
     this.events.on('playerShoot', ({ fromX, fromY, toX, toY, damage, isCrit, maxRange }) => {
       const bullet = new Projectile(this, fromX, fromY, toX, toY, { damage, isCrit, maxRange });
       this._bullets.push(bullet);
+      this.sound.play('sfx_shoot', { volume: 0.45 });
       if (isCrit) this.cameras.main.shake(60, 0.002);
     });
 
@@ -285,10 +317,12 @@ export default class GameScene extends Phaser.Scene {
         if (!monster.isAlive) return;
         const dist = Phaser.Math.Distance.Between(x, y, monster.x, monster.y);
         if (dist <= range) {
-          monster.takeDamage(damage);
+          monster.takeDamage(damage, isCrit);
           hit = true;
         }
       });
+      this.sound.play('sfx_melee', { volume: 0.55 });
+      if (hit) this.sound.play('sfx_hit_monster', { volume: 0.5 });
       // 휘두르기 이펙트
       this.showMeleeEffect(x, y, range);
       if (isCrit && hit) this.cameras.main.shake(80, 0.003);
@@ -305,18 +339,23 @@ export default class GameScene extends Phaser.Scene {
         this._fieldBosses[monster._bossIdx] = null;
         this.showFloatText(monster.x, monster.y - 60, '혈왕 처치!', '#ff4444', '20px');
         this.cameras.main.shake(500, 0.015);
+        this.sound.play('sfx_boss_die', { volume: 0.7 });
+      } else {
+        this.sound.play('sfx_monster_die', { volume: 0.45 });
       }
     });
 
     // 레벨업 알림 + 자동 저장
     this.events.on('levelUp', ({ player, level }) => {
       this.showLevelUpEffect(player, level);
+      this.sound.play('sfx_levelup', { volume: 0.65 });
       SaveSystem.saveChar(this._charId, player);
     });
 
     // 플레이어 사망
     this.events.on('playerDied', ({ player }) => {
       player.die();
+      this.sound.play('sfx_player_die', { volume: 0.6 });
       this.time.delayedCall(2000, () => {
         this.showDeathMessage();
       });
@@ -324,6 +363,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 스킬 발동
     this.events.on('playerSkill', ({ player, skill, x, y, targetX, targetY }) => {
+      this.sound.play('sfx_skill', { volume: 0.6 });
       this.handlePlayerSkill(player, skill, x, y, targetX, targetY);
     });
 
@@ -335,6 +375,14 @@ export default class GameScene extends Phaser.Scene {
     // 방어 파훼 알림
     this.events.on('defenseBreak', ({ monster }) => {
       this.showFloatText(monster.x, monster.y - 40, '방어 파훼!', '#f39c12', '16px');
+    });
+
+    // 가시 반사 피해
+    this.events.on('thornReflect', ({ damage }) => {
+      if (this.player?.isAlive) {
+        this.player.takeDamage(damage, 0, null);
+        this.showFloatText(this.player.x, this.player.y - 30, `↩ ${damage}`, '#e67e22', '13px');
+      }
     });
 
     // 격노 알림
@@ -374,6 +422,7 @@ export default class GameScene extends Phaser.Scene {
         const hit = Phaser.Math.Distance.Between(b.g.x, b.g.y, player.x, player.y) < 16;
         if (hit) {
           player.takeDamage(b.damage, b.drainRate, null);
+          this.sound.play('sfx_hit_player', { volume: 0.5 });
           b.g.destroy();
           return false;
         }
@@ -563,8 +612,80 @@ export default class GameScene extends Phaser.Scene {
       this.splitSlime(monster);
     }
 
+    // 누적 처치 카운터 (필드 보스·특별 몬스터 제외)
+    if (!monster.isFieldBoss && !monster._isHunter) {
+      this._killCount++;
+      if (this._killCount % 25 === 0) {
+        this.time.delayedCall(800, () => this._spawnHunterMonster());
+      }
+    }
+
     // UI 갱신 이벤트
     this.events.emit('statsChanged', this.player);
+  }
+
+  // ── 누적 처치 특별 몬스터 소환 ───────────────────────────
+  _spawnHunterMonster() {
+    const lastWaveIdx = HUNTER_WAVES.length - 1;
+    const waveIdx     = Math.min(this._hunterWaveIdx, lastWaveIdx);
+    const template    = HUNTER_WAVES[waveIdx];
+
+    // 웨이브 4(군주) 반복 시 배율 누적
+    const repeatBonus = this._hunterWaveIdx > lastWaveIdx
+      ? 1 + (this._hunterWaveIdx - lastWaveIdx) * 0.3
+      : 1;
+
+    const baseMonster = MONSTER_DATA.shadow_knight; // 기본 스탯 틀로 사용
+    const monsterData = {
+      ...baseMonster,
+      key:         `hunter_${this._hunterWaveIdx}`,
+      name:        template.name,
+      baseHp:      Math.floor(baseMonster.baseHp * template.hpMult  * repeatBonus),
+      baseDamage:  Math.floor(baseMonster.baseDamage * template.dmgMult * repeatBonus),
+      speed:       Math.floor(baseMonster.speed * template.speedMult),
+      defense:     template.defense,
+      magicResist: template.magicResist,
+      xpReward:    Math.floor(template.xpReward * repeatBonus),
+      goldReward:  {
+        min: Math.floor(template.goldReward.min * repeatBonus),
+        max: Math.floor(template.goldReward.max * repeatBonus),
+      },
+      defenseState: template.defenseState ?? null,
+      dropTable:    template.dropTable,
+      texture:      template.texture,
+      attackRange:  60,
+      attackCooldown: 900,
+      aggroRange:   350,
+      drainRate:    0.25,
+      drainType:    'normal',
+      patterns:     [],
+    };
+
+    // 플레이어 주변 500~700px 거리에 스폰
+    let x, y, tries = 0;
+    do {
+      const angle = Math.random() * Math.PI * 2;
+      const dist  = Phaser.Math.Between(500, 700);
+      x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 100, MAP_W - 100);
+      y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 100, MAP_H - 100);
+    } while (++tries < 20 && Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 400);
+
+    const hunter = new Monster(this, x, y, monsterData);
+    hunter.target    = this.player;
+    hunter._isHunter = true;
+    hunter.setTint(template.tint);
+    hunter.setScale(1.5);
+    hunter.nameText.setText(`💀 ${template.name}`);
+    hunter.nameText.setStyle({ fontSize: '12px', fill: '#ff4444', stroke: '#000', strokeThickness: 3 });
+    this.monsters.add(hunter);
+
+    // 등장 연출
+    const waveNum = this._killCount;
+    this.showFloatText(this.player.x, this.player.y - 80,
+      `⚠ ${template.name} 출현! (${waveNum}킬)`, '#ff4444', '18px');
+    this.cameras.main.shake(300, 0.008);
+
+    this._hunterWaveIdx++;
   }
 
   splitSlime(parent) {
@@ -659,7 +780,13 @@ export default class GameScene extends Phaser.Scene {
 
     this.input.keyboard.once('keydown-R', () => {
       overlay.destroy(); text.destroy(); sub.destroy();
-      this.scene.restart({ jobKey: this._jobKey, charId: this._charId });
+      // 재시작 전 HP/MP를 풀로 회복시켜 저장 (0HP로 로드되는 버그 방지)
+      if (this.player) {
+        this.player.hp = this.player.maxHp;
+        this.player.mp = this.player.maxMp;
+        SaveSystem.saveChar(this._charId, this.player);
+      }
+      this.scene.restart({ jobKey: this._jobKey, charId: this._charId, loadSave: true });
     });
   }
 
@@ -874,12 +1001,13 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.stop('UIScene');
-      this.scene.start('GuildScene', {
+      this.scene.launch('GuildScene', {
         jobKey:   this._jobKey,
         charId:   this._charId,
         loadSave: true,
         player:   this.player,
       });
+      this.scene.sleep();  // 파괴하지 않고 대기 (복귀 시 wake로 재개)
     });
   }
 
@@ -936,11 +1064,13 @@ export default class GameScene extends Phaser.Scene {
         SaveSystem.saveChar(this._charId, this.player);
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
+          this._bgm?.stop();
           this.scene.stop('UIScene');
-          this.scene.start('DungeonScene', {
+          this.scene.launch('DungeonScene', {
             jobKey: this._jobKey, charId: this._charId,
             loadSave: true, multi: this._isMulti, difficulty: d.level,
           });
+          this.scene.sleep();  // 파괴하지 않고 대기
         });
       });
     });

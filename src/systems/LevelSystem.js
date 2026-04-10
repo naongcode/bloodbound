@@ -7,9 +7,10 @@ export default class LevelSystem {
 
   // 경험치 획득 처리
   gainXP(player, amount) {
-    // 레벨 보정 (기획서 공식)
+    // 레벨 보정 — 레벨 차이당 3% 감소, 최소 20% 보장
+    // (기존 5%/최소10% → 저레벨 몹도 어느 정도 XP 제공)
     const levelDiff = player.level - (amount.sourceLevel || player.level);
-    const correction = Math.max(0.1, 1 - levelDiff * 0.05);
+    const correction = Math.max(0.2, 1 - levelDiff * 0.03);
     const finalXP = Math.floor(amount.base * correction);
 
     player.xp += finalXP;

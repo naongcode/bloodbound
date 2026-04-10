@@ -44,9 +44,11 @@ class AuthManager {
   // ── 인증 상태 변경 리스너 ─────────────────────────
   onAuthChange(callback) {
     return supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+      if (session?.user) {
         this.user = session.user;
-        await this._loadProfile();
+        if (event === 'SIGNED_IN') {
+          await this._loadProfile();
+        }
       } else if (event === 'SIGNED_OUT') {
         this.user    = null;
         this.profile = null;

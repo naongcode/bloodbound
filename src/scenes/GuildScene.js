@@ -34,7 +34,8 @@ export default class GuildScene extends Phaser.Scene {
     backBtn.on('pointerdown', () => {
       this.cameras.main.fadeOut(200, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('GameScene', { jobKey: this._jobKey, charId: this._charId, loadSave: true });
+        this.scene.wake('GameScene');  // 잠든 GameScene을 재개 (재생성 없음)
+        this.scene.stop();             // GuildScene 종료
       });
     });
 

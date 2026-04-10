@@ -432,6 +432,30 @@ export const ITEM_DATA = {
     maxStack: 99,
     description: 'HP를 350 회복한다.'
   },
+  hp_potion_large: {
+    key: 'hp_potion_large',
+    name: 'HP 포션 (대)',
+    type: 'consumable',
+    texture: 'item_potion_large',
+    requiredLevel: 40,
+    effect: { type: 'heal_hp', amount: 800 },
+    cooldown: 8000,
+    stackable: true,
+    maxStack: 99,
+    description: 'HP를 800 회복한다.'
+  },
+  mp_potion_small: {
+    key: 'mp_potion_small',
+    name: 'MP 포션 (소)',
+    type: 'consumable',
+    texture: 'item_potion_mp',
+    requiredLevel: 1,
+    effect: { type: 'heal_mp', amount: 80 },
+    cooldown: 5000,
+    stackable: true,
+    maxStack: 99,
+    description: 'MP를 80 회복한다.'
+  },
   // 재료
   iron_ore:       { key: 'iron_ore',       name: '철 광석',      type: 'material', texture: 'mat_ore',     stackable: true, maxStack: 999, description: '제작에 사용되는 철 광석.' },
   leather:        { key: 'leather',        name: '단단한 가죽',  type: 'material', texture: 'mat_leather', stackable: true, maxStack: 999, description: '가죽 장비 제작에 사용.' },

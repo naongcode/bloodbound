@@ -78,7 +78,8 @@ export default class Projectile {
       if (!monster.isAlive || this.hitSet.has(monster)) continue;
       if (Phaser.Math.Distance.Between(this.x, this.y, monster.x, monster.y) < 20) {
         this.hitSet.add(monster);
-        monster.takeDamage(this.damage);
+        monster.takeDamage(this.damage, this.isCrit);
+        scene.sound.play('sfx_hit_monster', { volume: 0.45 });
         scene.combatSystem.showHitEffect(scene, this.x, this.y);
         if (this.isCrit) scene.cameras.main.shake(80, 0.003);
         if (!this.piercing) { this.destroy(); return false; }

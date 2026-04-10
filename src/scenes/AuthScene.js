@@ -66,7 +66,7 @@ export default class AuthScene extends Phaser.Scene {
   async _checkSession() {
     // 5초 타임아웃 — Supabase 프로젝트 일시정지/네트워크 오류 대비
     const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), 5000)
+      setTimeout(() => reject(new Error('timeout')), 10000)
     );
 
     try {

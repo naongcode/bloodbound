@@ -29,7 +29,8 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
       VIT: Math.floor(data.baseHp / 20),
       WIS: 5,
       RES: 0,
-      defense: data.defense || 0,
+      defense:     data.defense     || 0,
+      magicResist: data.magicResist || 0,
       attackPower: data.baseDamage,
     };
 
@@ -53,7 +54,7 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
     // ── HP 바 ────────────────────────────────────────────────
     this.hpBar = scene.add.graphics().setDepth(11);
     this.hpBarBg = scene.add.graphics().setDepth(10);
-    this.nameText = scene.add.text(x, y - 28, data.name, {
+    this.nameText = scene.add.text(x, y - 42, data.name, {
       fontSize: '10px', fill: '#ffffff',
       stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5).setDepth(12);
@@ -93,6 +94,12 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
       this.isAggro = true;
     }
 
+    // 고블린: 전용 AI (도망 + 배회)
+    if (this.monsterData.isGoblin) {
+      this._updateGoblinAI(delta, dist);
+      return;
+    }
+
     if (!this.isAggro) {
       this.setVelocity(0, 0);
       return;
@@ -111,6 +118,46 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
         this.tryAttack(delta);
       }
     }
+  }
+
+  // ── 고블린 AI — 플레이어 주위를 원형으로 공전 ──────────────
+  _updateGoblinAI(delta, dist) {
+    const ORBIT_RADIUS = 190;  // 공전 반경 (px)
+    const ORBIT_SPEED  = 1.0;  // 각속도 (rad/s)
+
+    // 최초 실행 시 현재 위치 기준으로 초기 각도 설정
+    if (this._orbitAngle === undefined) {
+      this._orbitAngle   = Phaser.Math.Angle.Between(
+        this.target.x, this.target.y, this.x, this.y
+      );
+      this._orbitDir     = Math.random() < 0.5 ? 1 : -1; // 회전 방향
+      this._orbitDirTimer = Phaser.Math.Between(3000, 5000);
+    }
+
+    // 가끔 공전 방향 반전 (지그재그 느낌)
+    this._orbitDirTimer -= delta;
+    if (this._orbitDirTimer <= 0) {
+      this._orbitDir      *= -1;
+      this._orbitDirTimer  = Phaser.Math.Between(2500, 5000);
+    }
+
+    // 각도 진행
+    this._orbitAngle += this._orbitDir * ORBIT_SPEED * (delta / 1000);
+
+    // 목표점: 플레이어 주위 공전 궤도 위
+    const targetX = this.target.x + Math.cos(this._orbitAngle) * ORBIT_RADIUS;
+    const targetY = this.target.y + Math.sin(this._orbitAngle) * ORBIT_RADIUS;
+
+    // 목표점 방향으로 이동
+    const moveAngle = Phaser.Math.Angle.Between(this.x, this.y, targetX, targetY);
+    this.setVelocity(
+      Math.cos(moveAngle) * this.speed,
+      Math.sin(moveAngle) * this.speed,
+    );
+    this.setFlipX(this.target.x < this.x);
+
+    // 공격 거리 안에 들어오면 공격
+    if (dist <= this.attackRange) this.tryAttack(delta);
   }
 
   // ── 원거리 AI ─────────────────────────────────────────────
@@ -165,6 +212,7 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.target.takeDamage(baseDmg, this.drainRate, this);
+    this.scene.sound.play('sfx_hit_player', { volume: 0.45 });
 
     // 흡혈 이펙트
     if (this.drainRate > 0) {
@@ -186,18 +234,38 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
   }
 
   // ── 피격 ─────────────────────────────────────────────────
-  takeDamage(amount) {
+  takeDamage(amount, isCrit = false) {
+    const rawAmount = amount; // 파훼 누적은 감소 전 원본 피해로 계산
+
     // 방어 상태 중 피해 감소
     if (this.defenseState === 'physical_barrier') amount = Math.floor(amount * 0.05);
     if (this.defenseState === 'magic_barrier')   amount = Math.floor(amount * 0.05);
-    if (this.defenseState === 'full_guard')      amount = 0;
+    if (this.defenseState === 'full_guard') {
+      amount = 0;
+      this._showDmgNumber(0, false, true); // '방어!'
+      this.accumulateBreak(rawAmount);
+      return 0;
+    }
     if (this.defenseState === 'drain_shield') {
       // 흡혈 보호막: 받은 피해만큼 HP 회복 후 0
       this.hp = Math.min(this.maxHp, this.hp + amount);
+      this._showDmgNumber(0, false, false, true); // '흡수'
+      this.accumulateBreak(rawAmount);
       return 0;
+    }
+    if (this.defenseState === 'thorn_defense') {
+      // 가시 방어막: 피해 50% 흡수 + 반사
+      const reflected = Math.floor(amount * 0.5);
+      amount = amount - reflected;
+      if (reflected > 0) {
+        this.scene.events.emit('thornReflect', { damage: reflected });
+      }
     }
 
     this.hp = Math.max(0, this.hp - amount);
+
+    // 데미지 숫자 표시
+    this._showDmgNumber(amount, isCrit);
 
     // 피격 이펙트
     this.setTint(0xff6666);
@@ -205,11 +273,10 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
       if (this.active) this.clearTint();
     });
 
-    // 방어 파훼 누적
-    this.accumulateBreak(amount);
+    // 방어 파훼 누적 (원본 피해 기준)
+    this.accumulateBreak(rawAmount);
 
     if (this.hp <= 0) {
-      // try-catch: 이벤트 핸들러에서 예외가 발생해도 die()는 반드시 실행
       try { this.scene.events.emit('monsterDied', { monster: this }); } catch (e) {
         console.warn('[Monster] monsterDied 이벤트 오류:', e);
       }
@@ -217,6 +284,32 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
     }
 
     return amount;
+  }
+
+  // ── 데미지 숫자 표시 ─────────────────────────────────────
+  _showDmgNumber(amount, isCrit, isBlock = false, isDrain = false) {
+    const x = this.x + Phaser.Math.Between(-18, 18);
+    const y = this.y - 30;
+
+    let txt, color, size;
+    if (isBlock)       { txt = '방어!';  color = '#aaaaaa'; size = '13px'; }
+    else if (isDrain)  { txt = '흡수';   color = '#e74c3c'; size = '13px'; }
+    else if (isCrit)   { txt = `★${amount}`; color = '#f39c12'; size = '20px'; }
+    else               { txt = `${amount}`;  color = '#ffffff'; size = '15px'; }
+
+    const t = this.scene.add.text(x, y, txt, {
+      fontSize: size, fill: color, fontStyle: isCrit ? 'bold' : 'normal',
+      stroke: '#000000', strokeThickness: isCrit ? 4 : 3,
+    }).setDepth(100);
+
+    this.scene.tweens.add({
+      targets: t,
+      y: y - (isCrit ? 55 : 40),
+      alpha: 0,
+      duration: isCrit ? 1100 : 800,
+      ease: 'Power1',
+      onComplete: () => t.destroy(),
+    });
   }
 
   // ── 방어 파훼 누적 ────────────────────────────────────────
@@ -325,7 +418,7 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
   updateHpBar() {
     const bw = 32, bh = 4;
     const bx = this.x - bw / 2;
-    const by = this.y - 24;
+    const by = this.y - 30;
 
     this.hpBarBg.clear();
     this.hpBarBg.fillStyle(0x222222, 0.8);
@@ -346,7 +439,7 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
   }
 
   updateNameTag() {
-    this.nameText.setPosition(this.x, this.y - 30);
+    this.nameText.setPosition(this.x, this.y - 42);
     this.defenseAura.clear();
     if (this.defenseState) this.drawDefenseAura(this.defenseState);
   }

@@ -1,7 +1,7 @@
 import { ITEM_DATA, ITEM_SLOTS } from '../data/items.js';
 import { calcMaxHp, calcMaxMp, calcMoveSpeed } from '../data/jobs.js';
 
-const INVENTORY_SIZE = 30;
+const INVENTORY_SIZE = 48;
 
 export default class InventorySystem {
   constructor(scene) {
