@@ -269,12 +269,22 @@ export default class WaitingScene extends Phaser.Scene {
       fn(...args);
     };
 
-    this._onPlayerJoined = guard(({ room }) => {
+    this._onRoomSync = guard(({ room }) => {
       this._room = room;
       Network.room = room;
       this._refreshPlayers();
-      const newPlayer = room.players.at(-1);
-      if (newPlayer) this._addChatLine(`▶ ${newPlayer.name} 님이 입장했습니다.`, '#2ecc71');
+      this._updateStartBtn();
+    });
+
+    this._onPlayerJoined = guard(({ room, newPresences }) => {
+      this._room = room;
+      Network.room = room;
+      this._refreshPlayers();
+      this._updateStartBtn();
+      const newcomer = newPresences?.[0];
+      if (newcomer && newcomer.id !== Network.myId) {
+        this._addChatLine(`▶ ${newcomer.name} 님이 입장했습니다.`, '#2ecc71');
+      }
     });
 
     this._onPlayerLeft = guard(({ room }) => {
@@ -299,6 +309,9 @@ export default class WaitingScene extends Phaser.Scene {
           if (el) el.blur();
         });
 
+        // 이전 게임 씬 정리
+        this.scene.stop('UIScene');
+
         if (mode === 'dungeon') {
           this.scene.start('DungeonScene', { jobKey: this._jobKey, charId: this._charId, loadSave: true, multi: true });
         } else {
@@ -308,6 +321,7 @@ export default class WaitingScene extends Phaser.Scene {
       });
     };
 
+    Network.on('roomSync',     this._onRoomSync);
     Network.on('playerJoined', this._onPlayerJoined);
     Network.on('playerLeft',   this._onPlayerLeft);
     Network.on('chatMsg',      this._onChatMsg);
@@ -315,6 +329,7 @@ export default class WaitingScene extends Phaser.Scene {
 
     // 씬 종료 시 리스너 정리
     this.events.once('shutdown', () => {
+      Network.off('roomSync',     this._onRoomSync);
       Network.off('playerJoined', this._onPlayerJoined);
       Network.off('playerLeft',   this._onPlayerLeft);
       Network.off('chatMsg',      this._onChatMsg);

@@ -32,11 +32,15 @@ export default class UIScene extends Phaser.Scene {
     // statusApplied → updateStatusIcons()에서 매 프레임 동적 갱신
 
     // UIScene이 중지될 때 gameScene 이벤트에서 콜백 제거 (좀비 리스너 방지)
+    this._uiActive = true;
     this.events.on('shutdown', () => {
-      this.gameScene.events.off('statsChanged',     this._cbStats);
-      this.gameScene.events.off('levelUp',          this._cbLevel);
-      this.gameScene.events.off('inventoryChanged', this._cbInv);
-      this.gameScene.events.off('equipmentChanged', this._cbEquip);
+      this._uiActive = false;
+      // 카메라를 즉시 숨겨 shutdown 프레임에서 렌더링 오류 방지
+      this.cameras.main.setVisible(false);
+      this.gameScene?.events.off('statsChanged',     this._cbStats);
+      this.gameScene?.events.off('levelUp',          this._cbLevel);
+      this.gameScene?.events.off('inventoryChanged', this._cbInv);
+      this.gameScene?.events.off('equipmentChanged', this._cbEquip);
     });
 
     // I 키 → 인벤토리 토글
@@ -437,6 +441,7 @@ export default class UIScene extends Phaser.Scene {
   // 갱신 메서드
   // ════════════════════════════════════════════════
   update() {
+    if (!this._uiActive) return;
     const p = this.player;
     if (!p) return;
 

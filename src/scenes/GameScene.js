@@ -85,7 +85,8 @@ export default class GameScene extends Phaser.Scene {
     // ── 이벤트 리스너 ─────────────────────────────────────────
     this.setupEvents();
 
-    // ── UI 씬 시작 ────────────────────────────────────────────
+    // ── UI 씬 시작 (이전 인스턴스가 있으면 먼저 정리) ────────────
+    this.scene.stop('UIScene');
     this.scene.launch('UIScene', { gameScene: this });
     this.scene.bringToTop('UIScene');
 
@@ -115,6 +116,7 @@ export default class GameScene extends Phaser.Scene {
     // ── 씬 복귀(wake) 처리 ────────────────────────────────────
     // sleep → wake 시 create()는 호출되지 않으므로 여기서 UIScene 재실행
     this.events.on('wake', (_sys, data) => {
+      this.scene.stop('UIScene');
       this.scene.launch('UIScene', { gameScene: this });
       this.scene.bringToTop('UIScene');
       this.cameras.main.fadeIn(300, 0, 0, 0);

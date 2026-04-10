@@ -219,20 +219,36 @@ class NetworkManager {
         if (!this.room) return;
         const players = this._getPresencePlayers();
         this.room = { ...this.room, players, count: players.length };
+        this._emit('roomSync', { room: this.room });
       })
-      .on('presence', { event: 'join' }, () => {
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
         const players = this._getPresencePlayers();
         if (this.room) {
           this.room = { ...this.room, players, count: players.length };
-          this._emit('playerJoined', { room: this.room });
+          this._emit('playerJoined', { room: this.room, newPresences });
         }
       })
-      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+      .on('presence', { event: 'leave' }, async ({ leftPresences }) => {
         const leftId  = leftPresences[0]?.id;
         const players = this._getPresencePlayers();
         if (this.room) {
           this.room = { ...this.room, players, count: players.length };
           this._emit('playerLeft', { id: leftId, room: this.room });
+        }
+
+        // DB 정리: 방에 아무도 없으면 삭제, 아니면 카운트/호스트 갱신
+        if (!this._dbRoom) return;
+        if (players.length === 0) {
+          await supabase.from('rooms').delete().eq('id', this._dbRoom.id);
+        } else {
+          const updates = { player_count: players.length };
+          // 나간 사람이 호스트였으면 다음 플레이어로 위임
+          if (leftId === this._dbRoom.host_id) {
+            updates.host_id = players[0].id;
+            this._dbRoom.host_id = players[0].id;
+            if (this.room) this.room.host = players[0].id;
+          }
+          await supabase.from('rooms').update(updates).eq('id', this._dbRoom.id);
         }
       })
 

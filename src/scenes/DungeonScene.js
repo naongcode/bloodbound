@@ -88,7 +88,8 @@ export default class DungeonScene extends Phaser.Scene {
 
     // 던전 BGM은 웨이브 시작 시 1회 재생 (startWave에서 처리)
 
-    // UIScene 실행 (스킬 쿨타임 HUD, 인벤토리 등) — 반드시 DungeonScene 위에 렌더링
+    // UIScene 실행 (이전 인스턴스가 있으면 먼저 정리)
+    this.scene.stop('UIScene');
     this.scene.launch('UIScene', { gameScene: this });
     this.scene.bringToTop('UIScene');
 
