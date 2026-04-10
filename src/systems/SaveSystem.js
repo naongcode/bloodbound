@@ -4,7 +4,7 @@ import AuthManager from './AuthManager.js';
 
 const CHARS_KEY  = 'bloodbound_chars_v1';
 const LEGACY_KEY = 'bloodbound_v1';
-export const MAX_CHARS = 4;
+export const MAX_CHARS = 5;
 
 export default class SaveSystem {
 

@@ -62,8 +62,8 @@ export default class JobSelectScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this._charGroup.add(sub);
 
-    // 슬롯 배치: 최대 4개 가로
-    const slotW = 240, slotH = 340, gap = 18;
+    // 슬롯 배치: 최대 5개 가로
+    const slotW = 210, slotH = 340, gap = 12;
     const chars  = SaveSystem.loadAllCharsSync();
     const total  = MAX_CHARS;
     const totalW = total * slotW + (total - 1) * gap;

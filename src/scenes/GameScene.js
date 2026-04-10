@@ -6,9 +6,10 @@ import LevelSystem from '../systems/LevelSystem.js';
 import InventorySystem from '../systems/InventorySystem.js';
 import SaveSystem from '../systems/SaveSystem.js';
 import Network from '../systems/NetworkManager.js';
-import { guildSystem } from '../systems/GuildSystem.js';
-import { MONSTER_DATA, HUNTER_WAVES } from '../data/monsters.js';
+import { MONSTER_DATA } from '../data/monsters.js';
 import { ITEM_DATA } from '../data/items.js';
+import { spawnInitialMonsters, respawnMonsters, handleMonsterDeath } from '../systems/SpawnSystem.js';
+import { showMeleeEffect, handlePlayerSkill } from '../systems/SkillSystem.js';
 
 const MAP_W = 3200;
 const MAP_H = 2400;
@@ -63,7 +64,7 @@ export default class GameScene extends Phaser.Scene {
 
     // ── 몬스터 그룹 ──────────────────────────────────────────
     this.monsters = this.add.group();
-    this.spawnInitialMonsters();
+    spawnInitialMonsters(this);
 
     // ── 누적 처치 카운터 ─────────────────────────────────────
     this._killCount      = 0;  // 총 누적 처치 수
@@ -89,7 +90,7 @@ export default class GameScene extends Phaser.Scene {
     this.scene.bringToTop('UIScene');
 
     // ── 몬스터 리스폰 타이머 ──────────────────────────────────
-    this.time.addEvent({ delay: 10000, loop: true, callback: this.respawnMonsters, callbackScope: this });
+    this.time.addEvent({ delay: 10000, loop: true, callback: () => respawnMonsters(this) });
 
     // ── 필드 보스 ─────────────────────────────────────────────
     this.buildFieldBosses();
@@ -109,9 +110,7 @@ export default class GameScene extends Phaser.Scene {
     // ── 멀티플레이 ────────────────────────────────────────────
     if (this._isMulti) this.setupMultiplayer();
 
-    // ── 필드 BGM ──────────────────────────────────────────────
-    this._bgm = this.sound.add('bgm_field', { loop: true, volume: 0.35 });
-    this._bgm.play();
+    // 필드 BGM은 레벨업 시 1회 재생 (루프 없음)
 
     // ── 씬 복귀(wake) 처리 ────────────────────────────────────
     // sleep → wake 시 create()는 호출되지 않으므로 여기서 UIScene 재실행
@@ -119,7 +118,6 @@ export default class GameScene extends Phaser.Scene {
       this.scene.launch('UIScene', { gameScene: this });
       this.scene.bringToTop('UIScene');
       this.cameras.main.fadeIn(300, 0, 0, 0);
-      if (!this._bgm.isPlaying) this._bgm.play();
       // 던전에서 돌아온 경우 세이브 데이터 반영
       if (data?.loadSave && this._charId) {
         SaveSystem.loadChar(this._charId).then(saveData => {
@@ -175,98 +173,6 @@ export default class GameScene extends Phaser.Scene {
     return positions;
   }
 
-  // ── 몬스터 스폰 ──────────────────────────────────────────
-  spawnInitialMonsters() {
-    const spawnList = [
-      { key: 'blood_slime',    count: 25 },
-      { key: 'blood_bat',      count: 18 },
-      { key: 'blood_archer',   count: 14, minDist: 400 },
-      { key: 'bloodfang_wolf', count: 10, minDist: 600 },
-      { key: 'crimson_spider', count: 10, minDist: 500 },
-      { key: 'poison_mage',    count: 7,  minDist: 700 },
-      { key: 'blood_golem',    count: 5,  minDist: 800, outerZone: true },
-      { key: 'shadow_knight',  count: 5,  minDist: 800, outerZone: true },
-      { key: 'blood_kin',      count: 4,  minDist: 800, outerZone: true, noElite: true },
-      { key: 'blood_goblin',   count: 8,  minDist: 300, noElite: true },
-    ];
-
-    spawnList.forEach(({ key, count, minDist }) => {
-      for (let i = 0; i < count; i++) {
-        this.spawnMonster(key, { minDist });
-      }
-    });
-  }
-
-  spawnMonster(key, opts = {}) {
-    const data = MONSTER_DATA[key];
-    if (!data) return;
-
-    const minDist = opts.minDist ?? 300;
-    // 플레이어 근처 제외한 랜덤 위치
-    let x, y;
-    if (opts.outerZone) {
-      // 맵 외곽 400px 이내 영역에서만 스폰
-      const margin = 400;
-      do {
-        const side = Phaser.Math.Between(0, 3);
-        if (side === 0)      { x = Phaser.Math.Between(100, margin);           y = Phaser.Math.Between(100, MAP_H - 100); }
-        else if (side === 1) { x = Phaser.Math.Between(MAP_W - margin, MAP_W - 100); y = Phaser.Math.Between(100, MAP_H - 100); }
-        else if (side === 2) { x = Phaser.Math.Between(100, MAP_W - 100);     y = Phaser.Math.Between(100, margin); }
-        else                 { x = Phaser.Math.Between(100, MAP_W - 100);     y = Phaser.Math.Between(MAP_H - margin, MAP_H - 100); }
-      } while (this.player && Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < minDist);
-    } else {
-      do {
-        x = Phaser.Math.Between(100, MAP_W - 100);
-        y = Phaser.Math.Between(100, MAP_H - 100);
-      } while (Phaser.Math.Distance.Between(x, y, MAP_W / 2, MAP_H / 2) < minDist);
-    }
-
-    const monster = new Monster(this, x, y, data);
-    monster.target = this.player;
-    this.monsters.add(monster);
-
-    // 10% 확률로 엘리트화
-    if (!opts.noElite && Math.random() < 0.10) this.makeElite(monster);
-
-    return monster;
-  }
-
-  makeElite(monster) {
-    monster.isElite  = true;
-    monster.maxHp    = Math.floor(monster.maxHp * 2.2);
-    monster.hp       = monster.maxHp;
-    monster.damage   = Math.floor(monster.damage * 1.5);
-    monster.monsterData = {
-      ...monster.monsterData,
-      xpReward:   monster.monsterData.xpReward * 2,
-      goldReward: {
-        min: monster.monsterData.goldReward.min * 2,
-        max: monster.monsterData.goldReward.max * 2,
-      },
-    };
-    monster.setTint(0xff8c00).setScale(1.25);
-    monster.nameText.setText(`★ ${monster.monsterName}`);
-    monster.nameText.setStyle({ fontSize: '11px', fill: '#ffaa00', stroke: '#000000', strokeThickness: 3 });
-  }
-
-  respawnMonsters() {
-    const alive   = this.monsters.getChildren().filter(m => m.isAlive).length;
-    const toSpawn = Math.max(0, 35 - alive);
-    for (let i = 0; i < toSpawn; i++) {
-      const roll = Math.random();
-      let key, opts;
-      if      (roll < 0.25) { key = 'blood_slime';    opts = {}; }
-      else if (roll < 0.45) { key = 'blood_bat';      opts = {}; }
-      else if (roll < 0.60) { key = 'crimson_spider'; opts = { minDist: 400 }; }
-      else if (roll < 0.75) { key = 'bloodfang_wolf'; opts = { minDist: 500 }; }
-      else if (roll < 0.87) { key = 'blood_golem';    opts = { minDist: 700, outerZone: true }; }
-      else if (roll < 0.91) { key = 'shadow_knight';  opts = { minDist: 700, outerZone: true }; }
-      else if (roll < 0.97) { key = 'blood_kin';      opts = { minDist: 700, noElite: true }; }
-      else                  { key = 'blood_goblin';   opts = { minDist: 200, noElite: true }; }
-      this.spawnMonster(key, opts);
-    }
-  }
-
   // ── 이벤트 설정 ───────────────────────────────────────────
   setupEvents() {
     // 중복 등록 방지: 씬 재시작 시 기존 핸들러 먼저 제거
@@ -305,7 +211,6 @@ export default class GameScene extends Phaser.Scene {
     this.events.on('playerShoot', ({ fromX, fromY, toX, toY, damage, isCrit, maxRange }) => {
       const bullet = new Projectile(this, fromX, fromY, toX, toY, { damage, isCrit, maxRange });
       this._bullets.push(bullet);
-      this.sound.play('sfx_shoot', { volume: 0.45 });
       if (isCrit) this.cameras.main.shake(60, 0.002);
     });
 
@@ -321,10 +226,9 @@ export default class GameScene extends Phaser.Scene {
           hit = true;
         }
       });
-      this.sound.play('sfx_melee', { volume: 0.55 });
       if (hit) this.sound.play('sfx_hit_monster', { volume: 0.5 });
       // 휘두르기 이펙트
-      this.showMeleeEffect(x, y, range);
+      showMeleeEffect(this, x, y, range);
       if (isCrit && hit) this.cameras.main.shake(80, 0.003);
     });
 
@@ -332,30 +236,36 @@ export default class GameScene extends Phaser.Scene {
     this.events.on('monsterDied', ({ monster }) => {
       if (!monster.isAlive) return;
       monster.isAlive = false;
-      this.handleMonsterDeath(monster);
+      handleMonsterDeath(this, monster);
       // 필드 보스 사망 콜백
       if (monster.isFieldBoss && monster.onBossDeath) {
         monster.onBossDeath();
         this._fieldBosses[monster._bossIdx] = null;
         this.showFloatText(monster.x, monster.y - 60, '혈왕 처치!', '#ff4444', '20px');
         this.cameras.main.shake(500, 0.015);
-        this.sound.play('sfx_boss_die', { volume: 0.7 });
+        this.sound.play('sfx_boss_die', { volume: 0.5 });
       } else {
-        this.sound.play('sfx_monster_die', { volume: 0.45 });
+        this.sound.play('sfx_monster_die', { volume: 0.5 });
       }
     });
 
     // 레벨업 알림 + 자동 저장
     this.events.on('levelUp', ({ player, level }) => {
       this.showLevelUpEffect(player, level);
-      this.sound.play('sfx_levelup', { volume: 0.65 });
+      this.sound.play('sfx_levelup', { volume: 0.5 });
       SaveSystem.saveChar(this._charId, player);
+    });
+
+    // 직업 등급 상승
+    this.events.on('rankUp', ({ player, rankName }) => {
+      this.showFloatText(player.x, player.y - 90, `★ ${rankName} ★`, '#f1c40f', '22px');
+      this.sound.play('bgm_field', { loop: false, volume: 0.5 });
     });
 
     // 플레이어 사망
     this.events.on('playerDied', ({ player }) => {
       player.die();
-      this.sound.play('sfx_player_die', { volume: 0.6 });
+      this.sound.play('sfx_player_die', { volume: 0.5 });
       this.time.delayedCall(2000, () => {
         this.showDeathMessage();
       });
@@ -363,8 +273,8 @@ export default class GameScene extends Phaser.Scene {
 
     // 스킬 발동
     this.events.on('playerSkill', ({ player, skill, x, y, targetX, targetY }) => {
-      this.sound.play('sfx_skill', { volume: 0.6 });
-      this.handlePlayerSkill(player, skill, x, y, targetX, targetY);
+      this.sound.play('sfx_skill', { volume: 0.5 });
+      handlePlayerSkill(this, player, skill, x, y, targetX, targetY);
     });
 
     // MP 부족
@@ -429,285 +339,6 @@ export default class GameScene extends Phaser.Scene {
       }
       return true;
     });
-  }
-
-  // ── 근접 휘두르기 이펙트 ────────────────────────────────────
-  showMeleeEffect(x, y, range) {
-    const g = this.add.graphics().setDepth(20);
-    g.setPosition(x, y);
-    g.lineStyle(3, 0xe74c3c, 0.8);
-    g.strokeCircle(0, 0, range);
-    g.fillStyle(0xe74c3c, 0.12);
-    g.fillCircle(0, 0, range);
-    this.tweens.add({
-      targets: g, alpha: 0, scaleX: 1.2, scaleY: 1.2,
-      duration: 200, onComplete: () => g.destroy()
-    });
-  }
-
-  // ── 스킬 라우터 ─────────────────────────────────────────────
-  handlePlayerSkill(player, skill, x, y, targetX, targetY) {
-    switch (skill) {
-      case 'charge':       this.skillCharge(player, targetX, targetY);         break;
-      case 'barrage':      this.skillBarrage(player, x, y, targetX, targetY);  break;
-      case 'fireball':     this.skillFireball(player, x, y, targetX, targetY); break;
-      case 'holy_light':   this.skillHolyLight(player);                         break;
-      case 'poison_cloud': this.skillPoisonCloud(player, x, y);                break;
-    }
-  }
-
-  // warrior — 돌진
-  skillCharge(player, targetX, targetY) {
-    const { dashDistance, dashDuration, hitRadius, damageMultiplier } = player.skillDef.params;
-    const angle = Phaser.Math.Angle.Between(player.x, player.y, targetX, targetY);
-    const fromX = player.x, fromY = player.y;
-    const toX   = Phaser.Math.Clamp(fromX + Math.cos(angle) * dashDistance, 60, MAP_W - 60);
-    const toY   = Phaser.Math.Clamp(fromY + Math.sin(angle) * dashDistance, 60, MAP_H - 60);
-
-    player.isDodging = true;
-    player.setAlpha(0.65);
-
-    this.tweens.add({
-      targets: player, x: toX, y: toY, duration: dashDuration, ease: 'Power2',
-      onUpdate: () => {
-        const r = this.combatSystem.calcPhysicalDamage(player, { stats: { defense: 0 }, level: 1 });
-        this.monsters.getChildren().forEach(m => {
-          if (!m.isAlive) return;
-          if (Phaser.Math.Distance.Between(player.x, player.y, m.x, m.y) < hitRadius) {
-            m.takeDamage(r.damage * damageMultiplier);
-          }
-        });
-      },
-      onComplete: () => { player.isDodging = false; player.setAlpha(1); },
-    });
-
-    // 궤적 이펙트
-    const g = this.add.graphics().setDepth(18);
-    g.lineStyle(4, player.skillDef.color, 0.7);
-    g.beginPath(); g.moveTo(fromX, fromY); g.lineTo(toX, toY); g.strokePath();
-    this.tweens.add({ targets: g, alpha: 0, duration: 280, onComplete: () => g.destroy() });
-  }
-
-  // archer — 연사 (부채꼴 다발)
-  skillBarrage(player, x, y, targetX, targetY) {
-    const { projectileCount, spreadAngle, damageMultiplier, maxRange } = player.skillDef.params;
-    const base   = Phaser.Math.Angle.Between(x, y, targetX, targetY);
-    const result = this.combatSystem.calcPhysicalDamage(player, { stats: { defense: 0 }, level: 1 });
-    const half   = Math.floor(projectileCount / 2);
-    for (let i = -half; i <= half; i++) {
-      const a  = base + i * spreadAngle;
-      const tx = x + Math.cos(a) * 200;
-      const ty = y + Math.sin(a) * 200;
-      this._bullets.push(new Projectile(this, x, y, tx, ty, {
-        damage:   result.damage * damageMultiplier,
-        isCrit:   result.isCrit,
-        maxRange,
-        color:    player.skillDef.color,
-      }));
-    }
-  }
-
-  // mage — 파이어볼 (느리고 큰 투사체, 적중 시 폭발)
-  skillFireball(player, x, y, targetX, targetY) {
-    const { damageMultiplier, splashMultiplier, splashRadius, speed, maxRange, sizeScale } = player.skillDef.params;
-    const result = this.combatSystem.calcPhysicalDamage(player, { stats: { defense: 0 }, level: 1 });
-    const dmg    = result.damage * damageMultiplier;
-    this._bullets.push(new Projectile(this, x, y, targetX, targetY, {
-      damage: dmg,
-      speed, maxRange, sizeScale,
-      color:  player.skillDef.color,
-      onExplode: (ex, ey) => {
-        this.monsters.getChildren().forEach(m => {
-          if (!m.isAlive) return;
-          if (Phaser.Math.Distance.Between(ex, ey, m.x, m.y) < splashRadius) {
-            m.takeDamage(dmg * splashMultiplier);
-          }
-        });
-        this.showExplosion(ex, ey);
-      },
-    }));
-  }
-
-  // priest — 신성한 빛 (HP 회복)
-  skillHolyLight(player) {
-    const { healPercent } = player.skillDef.params;
-    const heal = Math.floor(player.maxHp * healPercent);
-    player.hp  = Math.min(player.maxHp, player.hp + heal);
-    this.events.emit('statsChanged', player);
-    this.showFloatText(player.x, player.y - 45, `+${heal} HP`, '#f1c40f', '18px');
-
-    const g = this.add.graphics().setDepth(18).setPosition(player.x, player.y);
-    g.fillStyle(player.skillDef.color, 0.28);
-    g.fillCircle(0, 0, 70);
-    this.tweens.add({ targets: g, alpha: 0, scaleX: 1.5, scaleY: 1.5, duration: 600, onComplete: () => g.destroy() });
-  }
-
-  // alchemist — 독 구름
-  skillPoisonCloud(player, x, y) {
-    const { radius, tickInterval, ticks, intMultiplier, minDamage } = player.skillDef.params;
-    const g = this.add.graphics().setDepth(8).setPosition(x, y);
-    g.fillStyle(player.skillDef.color, 0.2);  g.fillCircle(0, 0, radius);
-    g.lineStyle(2, player.skillDef.color, 0.5); g.strokeCircle(0, 0, radius);
-
-    this.time.addEvent({
-      delay: tickInterval, repeat: ticks - 1,
-      callback: () => {
-        this.monsters.getChildren().forEach(m => {
-          if (!m.isAlive) return;
-          if (Phaser.Math.Distance.Between(x, y, m.x, m.y) < radius) {
-            m.takeDamage(Math.max(minDamage, player.totalStats.INT * intMultiplier));
-          }
-        });
-      },
-    });
-    this.tweens.add({ targets: g, alpha: 0, duration: tickInterval * ticks, onComplete: () => g.destroy() });
-  }
-
-  // 폭발 이펙트 (fireball용)
-  showExplosion(x, y) {
-    const g = this.add.graphics().setDepth(20).setPosition(x, y);
-    g.fillStyle(0xff6600, 0.75); g.fillCircle(0, 0, 80);
-    g.fillStyle(0xffcc00, 0.9);  g.fillCircle(0, 0, 42);
-    g.fillStyle(0xffffff, 0.6);  g.fillCircle(0, 0, 16);
-    this.tweens.add({ targets: g, alpha: 0, scaleX: 1.6, scaleY: 1.6, duration: 380, ease: 'Power2', onComplete: () => g.destroy() });
-    this.cameras.main.shake(100, 0.005);
-  }
-
-  // ── 몬스터 사망 처리 ─────────────────────────────────────
-  handleMonsterDeath(monster) {
-    const data = monster.monsterData;
-    const bossMulti = monster.isFieldBoss ? 10 : 1;
-
-    // 길드 퀘스트 진행도 갱신
-    guildSystem.progressQuest('kill', data.key, 1);
-    if (monster.isFieldBoss) guildSystem.progressQuest('boss', 'field_boss', 1);
-
-    // 경험치 지급 (길드 XP 보너스 포함)
-    const xpBonus = 1 + (guildSystem.hasGuild() ? guildSystem.getEffectivePerks().xpBonus : 0);
-    this.levelSystem.gainXP(this.player, {
-      base: Math.round(data.xpReward * bossMulti * xpBonus),
-      sourceLevel: data.level
-    });
-
-    // 골드 드롭 (길드 골드 보너스 포함)
-    const goldBonus = 1 + (guildSystem.hasGuild() ? guildSystem.getEffectivePerks().goldBonus : 0);
-    const gold = Math.round(Phaser.Math.Between(data.goldReward.min, data.goldReward.max) * bossMulti * goldBonus);
-    this.player.inventory.gold += gold;
-    guildSystem.progressQuest('gold', null, gold);
-
-    // 아이템 드롭
-    if (data.dropTable) {
-      data.dropTable.forEach(drop => {
-        if (Math.random() < drop.chance) {
-          const qty = Phaser.Math.Between(drop.quantity[0], drop.quantity[1]);
-          this.inventorySystem.addItem(this.player.inventory, drop.itemKey, qty);
-          this.spawnDropEffect(monster.x, monster.y, drop.itemKey);
-        }
-      });
-    }
-
-    // 분열 처리 (흡혈 슬라임)
-    if (data.canSplit && monster.hp <= 0 && !monster._hasSplit) {
-      monster._hasSplit = true;
-      this.splitSlime(monster);
-    }
-
-    // 누적 처치 카운터 (필드 보스·특별 몬스터 제외)
-    if (!monster.isFieldBoss && !monster._isHunter) {
-      this._killCount++;
-      if (this._killCount % 25 === 0) {
-        this.time.delayedCall(800, () => this._spawnHunterMonster());
-      }
-    }
-
-    // UI 갱신 이벤트
-    this.events.emit('statsChanged', this.player);
-  }
-
-  // ── 누적 처치 특별 몬스터 소환 ───────────────────────────
-  _spawnHunterMonster() {
-    const lastWaveIdx = HUNTER_WAVES.length - 1;
-    const waveIdx     = Math.min(this._hunterWaveIdx, lastWaveIdx);
-    const template    = HUNTER_WAVES[waveIdx];
-
-    // 웨이브 4(군주) 반복 시 배율 누적
-    const repeatBonus = this._hunterWaveIdx > lastWaveIdx
-      ? 1 + (this._hunterWaveIdx - lastWaveIdx) * 0.3
-      : 1;
-
-    const baseMonster = MONSTER_DATA.shadow_knight; // 기본 스탯 틀로 사용
-    const monsterData = {
-      ...baseMonster,
-      key:         `hunter_${this._hunterWaveIdx}`,
-      name:        template.name,
-      baseHp:      Math.floor(baseMonster.baseHp * template.hpMult  * repeatBonus),
-      baseDamage:  Math.floor(baseMonster.baseDamage * template.dmgMult * repeatBonus),
-      speed:       Math.floor(baseMonster.speed * template.speedMult),
-      defense:     template.defense,
-      magicResist: template.magicResist,
-      xpReward:    Math.floor(template.xpReward * repeatBonus),
-      goldReward:  {
-        min: Math.floor(template.goldReward.min * repeatBonus),
-        max: Math.floor(template.goldReward.max * repeatBonus),
-      },
-      defenseState: template.defenseState ?? null,
-      dropTable:    template.dropTable,
-      texture:      template.texture,
-      attackRange:  60,
-      attackCooldown: 900,
-      aggroRange:   350,
-      drainRate:    0.25,
-      drainType:    'normal',
-      patterns:     [],
-    };
-
-    // 플레이어 주변 500~700px 거리에 스폰
-    let x, y, tries = 0;
-    do {
-      const angle = Math.random() * Math.PI * 2;
-      const dist  = Phaser.Math.Between(500, 700);
-      x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * dist, 100, MAP_W - 100);
-      y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * dist, 100, MAP_H - 100);
-    } while (++tries < 20 && Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 400);
-
-    const hunter = new Monster(this, x, y, monsterData);
-    hunter.target    = this.player;
-    hunter._isHunter = true;
-    hunter.setTint(template.tint);
-    hunter.setScale(1.5);
-    hunter.nameText.setText(`💀 ${template.name}`);
-    hunter.nameText.setStyle({ fontSize: '12px', fill: '#ff4444', stroke: '#000', strokeThickness: 3 });
-    this.monsters.add(hunter);
-
-    // 등장 연출
-    const waveNum = this._killCount;
-    this.showFloatText(this.player.x, this.player.y - 80,
-      `⚠ ${template.name} 출현! (${waveNum}킬)`, '#ff4444', '18px');
-    this.cameras.main.shake(300, 0.008);
-
-    this._hunterWaveIdx++;
-  }
-
-  splitSlime(parent) {
-    for (let i = 0; i < 2; i++) {
-      const offset = 40;
-      const sx = parent.x + (i === 0 ? -offset : offset);
-      const sy = parent.y;
-      const splitData = {
-        ...MONSTER_DATA.blood_slime,
-        baseHp: Math.floor(MONSTER_DATA.blood_slime.baseHp / 2),
-        baseDamage: Math.floor(MONSTER_DATA.blood_slime.baseDamage * 0.7),
-        xpReward: Math.floor(MONSTER_DATA.blood_slime.xpReward / 2),
-        canSplit: false,
-      };
-      const baby = this.spawnMonster('blood_slime');
-      if (baby) {
-        baby.setPosition(sx, sy);
-        baby.maxHp = splitData.baseHp;
-        baby.hp    = splitData.baseHp;
-        baby.monsterData = splitData;
-      }
-    }
   }
 
   // ── 이펙트들 ─────────────────────────────────────────────
@@ -1064,7 +695,6 @@ export default class GameScene extends Phaser.Scene {
         SaveSystem.saveChar(this._charId, this.player);
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
-          this._bgm?.stop();
           this.scene.stop('UIScene');
           this.scene.launch('DungeonScene', {
             jobKey: this._jobKey, charId: this._charId,
@@ -1128,7 +758,7 @@ export default class GameScene extends Phaser.Scene {
     this.time.addEvent({ delay: 300, loop: true, callback: () => this._refreshPartyHUD() });
   }
 
-  _updateRemotePlayer(id, x, y, hp, maxHp, level) {
+  _updateRemotePlayer(id, x, y, hp, maxHp, _level) {
     let remote = this._remotes.get(id);
     const room = Network.room;
     const info = room?.players?.find(p => p.id === id);
@@ -1172,9 +802,9 @@ export default class GameScene extends Phaser.Scene {
     const others = (room.players ?? []).filter(p => p.id !== Network.myId);
     others.forEach((p, i) => {
       const cx = 12, cy = this._partyHudY - i * 50;
-      const bg   = this.add.rectangle(cx + 90, cy, 180, 40, 0x000000, 0.6).setScrollFactor(0).setDepth(95);
+      this.add.rectangle(cx + 90, cy, 180, 40, 0x000000, 0.6).setScrollFactor(0).setDepth(95);
       const name = this.add.text(cx + 8, cy - 10, p.name, { fontSize: '11px', fill: '#5dade2' }).setScrollFactor(0).setDepth(96);
-      const hpBg = this.add.rectangle(cx + 8, cy + 8, 160, 6, 0x333333).setOrigin(0, 0.5).setScrollFactor(0).setDepth(96);
+      this.add.rectangle(cx + 8, cy + 8, 160, 6, 0x333333).setOrigin(0, 0.5).setScrollFactor(0).setDepth(96);
       const hpBr = this.add.rectangle(cx + 8, cy + 8, 160, 6, 0x2ecc71).setOrigin(0, 0.5).setScrollFactor(0).setDepth(97);
       this._partyCards.push({ id: p.id, hpBr, name });
     });

@@ -1,6 +1,7 @@
 // HUD + 인벤토리 UI 씬 (GameScene 위에 오버레이)
 import { ITEM_DATA, gradeColor, gradeHexColor } from '../data/items.js';
 import SaveSystem from '../systems/SaveSystem.js';
+import { getJobRankName } from '../systems/LevelSystem.js';
 
 export default class UIScene extends Phaser.Scene {
   constructor() {
@@ -454,7 +455,7 @@ export default class UIScene extends Phaser.Scene {
     this.xpBar.width = Math.round(256 * xp.percent);
 
     // 레벨/골드
-    this.levelText.setText(`Lv.${p.level}  ${p.jobData.name}`);
+    this.levelText.setText(`Lv.${p.level}  ${getJobRankName(p)}`);
     this.goldText.setText(`💰 ${p.inventory.gold.toLocaleString()} G`);
 
     // 스킬 쿨타임 오버레이

@@ -18,6 +18,7 @@ export default class WaitingScene extends Phaser.Scene {
   init(data) {
     this._room   = data.room;
     this._jobKey = data.jobKey ?? 'warrior';
+    this._charId = data.charId ?? null;
     Network.room = this._room;
   }
 
@@ -222,7 +223,7 @@ export default class WaitingScene extends Phaser.Scene {
       Network.leaveRoom();
       this.cameras.main.fadeOut(200, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('LobbyScene', { jobKey: this._jobKey });
+        this.scene.start('LobbyScene', { jobKey: this._jobKey, charId: this._charId });
       });
     });
 
@@ -295,9 +296,9 @@ export default class WaitingScene extends Phaser.Scene {
         });
 
         if (mode === 'dungeon') {
-          this.scene.start('DungeonScene', { jobKey: this._jobKey, multi: true });
+          this.scene.start('DungeonScene', { jobKey: this._jobKey, charId: this._charId, loadSave: true, multi: true });
         } else {
-          this.scene.start('GameScene', { jobKey: this._jobKey, multi: true });
+          this.scene.start('GameScene', { jobKey: this._jobKey, charId: this._charId, loadSave: true, multi: true });
           this.scene.launch('UIScene', { gameScene: this.scene.get('GameScene') });
         }
       });

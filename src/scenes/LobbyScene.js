@@ -1,6 +1,16 @@
 // LobbyScene — 멀티플레이 로비 (닉네임 입력, 룸 목록, 생성/참가)
 import Network from '../systems/NetworkManager.js';
 import { JOB_DATA } from '../data/jobs.js';
+import SaveSystem from '../systems/SaveSystem.js';
+
+const JOB_COLORS = {
+  warrior: 0x3498db, archer: 0x2ecc71, mage: 0x9b59b6,
+  priest: 0xf1c40f, alchemist: 0xe67e22, berserker: 0xe74c3c, knight: 0x95a5a6,
+};
+const JOB_NAMES = {
+  warrior: '전사', archer: '궁수', mage: '마법사',
+  priest: '성직자', alchemist: '연금술사', berserker: '광전사', knight: '나이트',
+};
 
 const W = 1280, H = 720;
 
@@ -9,6 +19,7 @@ export default class LobbyScene extends Phaser.Scene {
 
   init(data) {
     this._jobKey = data?.jobKey ?? 'warrior';
+    this._charId = data?.charId ?? null;
   }
 
   create() {
@@ -67,63 +78,80 @@ export default class LobbyScene extends Phaser.Scene {
       fontSize: '16px', fill: '#f1c40f', fontStyle: 'bold'
     }).setOrigin(0.5, 0);
 
-    // 닉네임 입력
-    this.add.text(px + 16, py + 56, '닉네임', { fontSize: '13px', fill: '#aaa' });
-
-    // DOM 입력창 (HTML)
-    this._nameInput = this.add.dom(px + pw / 2, py + 88).createFromHTML(`
+    // ── 닉네임 입력 ──────────────────────────────
+    this.add.text(px + 16, py + 44, '닉네임', { fontSize: '13px', fill: '#aaa' });
+    this._nameInput = this.add.dom(px + pw / 2, py + 74).createFromHTML(`
       <input id="nameInput" type="text" maxlength="12" placeholder="닉네임 입력 (2~12자)"
         style="width:310px;padding:8px 12px;background:#0d0d1e;border:1px solid #444466;
                color:#fff;font-size:14px;border-radius:4px;outline:none;" />
     `);
-
-    // 저장된 닉네임 복원
     const saved = localStorage.getItem('bb_name') ?? '';
     if (saved) setTimeout(() => {
       const el = document.getElementById('nameInput');
       if (el) el.value = saved;
     }, 100);
 
-    // 직업 선택 표시
-    this.add.text(px + 16, py + 120, '직업', { fontSize: '13px', fill: '#aaa' });
+    // ── 캐릭터 선택 ───────────────────────────────
+    this.add.text(px + 16, py + 108, '캐릭터 선택', { fontSize: '13px', fill: '#aaa' });
 
-    const job = JOB_DATA[this._jobKey];
-    this._jobNameText = this.add.text(px + pw / 2, py + 146, job?.name ?? this._jobKey, {
-      fontSize: '18px', fill: '#ffffff', fontStyle: 'bold',
-    }).setOrigin(0.5, 0);
+    const chars = SaveSystem.loadAllCharsSync();
+    this._charRows = [];
+    const rowH = 34, rowGap = 5;
+    const listTop = py + 128;
 
-    // 직업 변경 버튼 (← →)
-    const jobs    = Object.values(JOB_DATA);
-    this._jobIdx  = jobs.findIndex(j => j.key === this._jobKey);
-    if (this._jobIdx < 0) this._jobIdx = 0;
+    if (chars.length === 0) {
+      this.add.text(px + pw / 2, listTop + 60, '저장된 캐릭터가 없습니다.', {
+        fontSize: '13px', fill: '#555', align: 'center'
+      }).setOrigin(0.5);
+    } else {
+      chars.forEach((char, i) => {
+        const ry   = listTop + i * (rowH + rowGap);
+        const accent = JOB_COLORS[char.jobKey] ?? 0x888888;
+        const isSelected = (char.charId === this._charId);
 
-    const leftBtn = this.add.text(px + 40, py + 150, '◀', { fontSize: '18px', fill: '#888' })
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        this._jobIdx = (this._jobIdx - 1 + jobs.length) % jobs.length;
-        this._jobKey = jobs[this._jobIdx].key;
-        this._jobNameText.setText(jobs[this._jobIdx].name);
-        Network.jobKey = this._jobKey;
+        const rowBg = this.add.rectangle(px + pw / 2, ry + rowH / 2, pw - 24, rowH,
+          isSelected ? 0x1e2a3a : 0x0d0d20)
+          .setStrokeStyle(2, isSelected ? accent : 0x2a2a44)
+          .setInteractive({ useHandCursor: true });
+
+        // 직업 색상 바
+        this.add.rectangle(px + 12 + 5, ry + rowH / 2, 6, rowH - 8, accent, 0.9);
+
+        const jobName  = JOB_NAMES[char.jobKey] ?? char.jobKey;
+        const nameTxt  = this.add.text(px + 28, ry + rowH / 2,
+          `${jobName}  Lv.${char.level ?? 1}`, {
+          fontSize: '14px', fill: isSelected ? '#ffffff' : '#aaaaaa', fontStyle: 'bold'
+        }).setOrigin(0, 0.5);
+        const levelTxt = null;
+
+        // 선택 표시
+        const checkTxt = this.add.text(px + pw - 28, ry + rowH / 2, isSelected ? '✔' : '', {
+          fontSize: '14px', fill: '#2ecc71'
+        }).setOrigin(1, 0.5);
+
+        this._charRows.push({ rowBg, nameTxt, checkTxt, char, accent });
+
+        rowBg.on('pointerover', () => {
+          if (char.charId !== this._charId) rowBg.setFillStyle(0x1a1a30);
+        });
+        rowBg.on('pointerout', () => {
+          rowBg.setFillStyle(char.charId === this._charId ? 0x1e2a3a : 0x0d0d20);
+        });
+        rowBg.on('pointerdown', () => this._selectChar(char));
       });
-    const rightBtn = this.add.text(px + pw - 52, py + 150, '▶', { fontSize: '18px', fill: '#888' })
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        this._jobIdx = (this._jobIdx + 1) % jobs.length;
-        this._jobKey = jobs[this._jobIdx].key;
-        this._jobNameText.setText(jobs[this._jobIdx].name);
-        Network.jobKey = this._jobKey;
-      });
+    }
 
-    // 서버 연결 상태 표시
-    this.add.text(px + 16, py + 200, '서버', { fontSize: '13px', fill: '#aaa' });
-    this._connStatus = this.add.text(px + pw / 2, py + 220, '연결 중...', {
+    // ── 서버 연결 상태 ────────────────────────────
+    const statusY = listTop + 5 * (rowH + rowGap) + 10;
+    this.add.text(px + 16, statusY, '서버', { fontSize: '13px', fill: '#aaa' });
+    this._connStatus = this.add.text(px + pw / 2, statusY + 20, '연결 중...', {
       fontSize: '13px', fill: '#f39c12', fontStyle: 'bold'
     }).setOrigin(0.5, 0);
 
-    // 솔로 플레이 버튼
-    const soloBtn = this.add.rectangle(px + pw / 2, py + ph - 40, pw - 40, 36, 0x0d1f0d)
+    // ── 솔로 플레이 버튼 ──────────────────────────
+    const soloBtn = this.add.rectangle(px + pw / 2, py + ph - 32, pw - 40, 36, 0x0d1f0d)
       .setStrokeStyle(2, 0x2ecc71).setInteractive({ useHandCursor: true });
-    const soloTxt = this.add.text(px + pw / 2, py + ph - 40, '솔로 플레이', {
+    const soloTxt = this.add.text(px + pw / 2, py + ph - 32, '솔로 플레이', {
       fontSize: '14px', fill: '#2ecc71', fontStyle: 'bold'
     }).setOrigin(0.5);
     soloBtn.on('pointerover', () => soloBtn.setFillStyle(0x1a3a1a));
@@ -132,8 +160,25 @@ export default class LobbyScene extends Phaser.Scene {
       Network.disconnect();
       this.cameras.main.fadeOut(200, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('GameScene', { jobKey: this._jobKey });
+        this.scene.start('GameScene', {
+          jobKey: this._jobKey, charId: this._charId, loadSave: !!this._charId
+        });
       });
+    });
+  }
+
+  _selectChar(char) {
+    this._charId = char.charId;
+    this._jobKey = char.jobKey;
+    Network.jobKey = char.jobKey;
+
+    // 선택 표시 갱신
+    this._charRows?.forEach(row => {
+      const sel = row.char.charId === char.charId;
+      row.rowBg.setFillStyle(sel ? 0x1e2a3a : 0x0d0d20)
+               .setStrokeStyle(2, sel ? row.accent : 0x2a2a44);
+      row.nameTxt.setStyle({ fill: sel ? '#ffffff' : '#aaaaaa' });
+      row.checkTxt.setText(sel ? '✔' : '');
     });
   }
 
@@ -346,7 +391,7 @@ export default class LobbyScene extends Phaser.Scene {
 
     this.cameras.main.fadeOut(200, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('WaitingScene', { room, jobKey: this._jobKey });
+      this.scene.start('WaitingScene', { room, jobKey: this._jobKey, charId: this._charId });
     });
   }
 

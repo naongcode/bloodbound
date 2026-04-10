@@ -31,11 +31,13 @@ export default class BootScene extends Phaser.Scene {
     this.createProceduralSounds();
 
     // 실제 사운드 파일 로드
-    this.load.audio('bgm_field',         'assets/sounds/1. base bgm - jojos-golden-wind_kL2WElB.mp3');
+    this.load.audio('bgm_field',          'assets/sounds/1. base bgm - jojos-golden-wind_kL2WElB.mp3');
     this.load.audio('bgm_dungeon',        'assets/sounds/11. dungeon bgm - passo-bem-solto-slowed.mp3');
     this.load.audio('sfx_boss_popup',     'assets/sounds/3. dungeon boss popup - gongseubgyeongbo_lfHPliG.mp3');
     this.load.audio('sfx_item_box',       'assets/sounds/4. dungeon item box - ta-da_yrvBrlS.mp3');
     this.load.audio('sfx_dungeon_boss_die','assets/sounds/8. dungeon boss died - jabassjyo.mp3');
+    this.load.audio('sfx_levelup',        'assets/sounds/9. level up - ralro-neo-ganeungseong-isseo.mp3');
+    this.load.audio('sfx_player_die',     'assets/sounds/10. player dead - mweohano-hahaha-jiko.mp3');
   }
 
   createProceduralTextures() {
@@ -484,31 +486,7 @@ export default class BootScene extends Phaser.Scene {
       }
     }));
 
-    // 7. 레벨업 — 상승 아르페지오 (C5→E5→G5→C6)
-    add('sfx_levelup', mk(0.7, (d, sr) => {
-      const notes = [523, 659, 784, 1047];
-      const step  = 0.175;
-      for (let i = 0; i < d.length; i++) {
-        const t  = i / sr;
-        const ni = Math.min(Math.floor(t / step), 3);
-        const nt = t - ni * step;
-        const e  = Math.exp(-nt * 10);
-        d[i] = Math.sin(2 * Math.PI * notes[ni] * t) * e * 0.6;
-      }
-    }));
-
-    // 8. 플레이어 사망 — 하강 드론
-    add('sfx_player_die', mk(1.1, (d, sr) => {
-      for (let i = 0; i < d.length; i++) {
-        const t = i / sr;
-        const e = Math.exp(-t * 2.8);
-        const f = 280 - 200 * (t / 1.1);
-        d[i] = Math.sin(2 * Math.PI * f * t) * e * 0.5
-              + Math.sin(2 * Math.PI * (f * 0.5) * t) * e * 0.3;
-      }
-    }));
-
-    // 9. 스킬 발동 — 에너지 스윕
+    // 7. 스킬 발동 — 에너지 스윕
     add('sfx_skill', mk(0.38, (d, sr) => {
       for (let i = 0; i < d.length; i++) {
         const t = i / sr;

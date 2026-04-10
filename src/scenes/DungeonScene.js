@@ -86,9 +86,7 @@ export default class DungeonScene extends Phaser.Scene {
     this.setupEvents();
     this.buildHUD();
 
-    // ── 던전 BGM ──────────────────────────────────────────────
-    this._bgm = this.sound.add('bgm_dungeon', { loop: true, volume: 0.4 });
-    this._bgm.play();
+    // 던전 BGM은 웨이브 시작 시 1회 재생 (startWave에서 처리)
 
     // UIScene 실행 (스킬 쿨타임 HUD, 인벤토리 등) — 반드시 DungeonScene 위에 렌더링
     this.scene.launch('UIScene', { gameScene: this });
@@ -176,7 +174,9 @@ export default class DungeonScene extends Phaser.Scene {
 
     this.showWaveBanner(wave.label, wave.boss);
     this.updateWaveHUD();
-    if (wave.boss) this.sound.play('sfx_boss_popup', { volume: 0.7 });
+    this.sound.stopByKey('bgm_dungeon');
+    this.sound.play('bgm_dungeon', { loop: false, volume: 0.5 });
+    if (wave.boss) this.sound.play('sfx_boss_popup', { volume: 0.5 });
 
     // 기존 몬스터 정리
     this.monsters.getChildren().forEach(m => { if (m.active) m.destroy(); });
@@ -295,7 +295,7 @@ export default class DungeonScene extends Phaser.Scene {
   openChest() {
     if (this._chestOpened) return;
     this._chestOpened = true;
-    this.sound.play('sfx_item_box', { volume: 0.65 });
+    this.sound.play('sfx_item_box', { volume: 0.5 });
 
     // 보상 목록: 골드 + 랜덤 아이템 (난이도 배율 적용)
     const cfg        = this._diffCfg || DIFF_TABLE[1];
@@ -376,8 +376,8 @@ export default class DungeonScene extends Phaser.Scene {
       // 보스 HP바 갱신
       if (monster === this._bossTarget) this._bossTarget = null;
       if (monster.isBoss) {
-        this._bgm?.stop();
-        this.sound.play('sfx_dungeon_boss_die', { volume: 0.7 });
+        this.sound.stopByKey('bgm_dungeon');
+        this.sound.play('sfx_dungeon_boss_die', { volume: 0.5 });
       }
       // 웨이브 클리어 체크 (약간 딜레이)
       this.time.delayedCall(500, () => this.checkWaveCleared());
@@ -386,7 +386,14 @@ export default class DungeonScene extends Phaser.Scene {
     // 레벨업
     this.events.on('levelUp', ({ player, level }) => {
       this.showLevelUpEffect(player, level);
+      this.sound.play('sfx_levelup', { volume: 0.5 });
       SaveSystem.saveChar(this._charId, player);
+    });
+
+    // 직업 등급 상승
+    this.events.on('rankUp', ({ player, rankName }) => {
+      this.showFloatText(player.x, player.y - 90, `★ ${rankName} ★`, '#f1c40f', '22px');
+      this.sound.play('bgm_field', { loop: false, volume: 0.5 });
     });
 
     // 플레이어 사망
