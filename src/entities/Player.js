@@ -113,10 +113,17 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     const speed = this.moveSpeed;
     let vx = 0, vy = 0;
 
+    // 키보드 입력
     if (this.keys.left.isDown)  vx -= speed;
     if (this.keys.right.isDown) vx += speed;
     if (this.keys.up.isDown)    vy -= speed;
     if (this.keys.down.isDown)  vy += speed;
+
+    // 모바일 가상 방향키 입력 (키보드와 합산)
+    if (this.mobileDir) {
+      vx += (this.mobileDir.x || 0) * speed;
+      vy += (this.mobileDir.y || 0) * speed;
+    }
 
     // 대각선 속도 보정
     if (vx !== 0 && vy !== 0) {

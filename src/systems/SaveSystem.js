@@ -132,7 +132,10 @@ export default class SaveSystem {
     player.skillPoints = data.skillPoints ?? 0;
 
     player.inventory.gold      = data.gold      ?? 0;
-    player.inventory.slots     = data.slots     ?? new Array(30).fill(null);
+    // 저장된 slots가 48칸보다 짧으면 뒤를 null로 채워 항상 48칸 보장
+    const saved = data.slots ?? [];
+    const padded = Array.from({ length: 48 }, (_, i) => saved[i] ?? null);
+    player.inventory.slots     = padded;
     player.inventory.equipment = data.equipment ?? {};
 
     player.maxHp = calcMaxHp(player.jobData, player.stats, player.level);

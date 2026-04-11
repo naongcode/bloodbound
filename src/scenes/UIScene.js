@@ -1,5 +1,6 @@
 // HUD + 인벤토리 UI 씬 (GameScene 위에 오버레이)
 import { ITEM_DATA, gradeColor, gradeHexColor } from '../data/items.js';
+import { CRAFT_RECIPES } from '../data/crafting.js';
 import SaveSystem from '../systems/SaveSystem.js';
 import { getJobRankName } from '../systems/LevelSystem.js';
 
@@ -87,7 +88,9 @@ export default class UIScene extends Phaser.Scene {
     this.buildPotionBar();
     this.buildShopPanel();
     this.buildEnhancePanel();
+    this.buildCraftPanel();
     this.buildSettingsPanel();
+    this.buildMobileDpad();
   }
 
   // ════════════════════════════════════════════════
@@ -138,6 +141,14 @@ export default class UIScene extends Phaser.Scene {
     enhBtn.on('pointerover', () => enhBtn.setFillStyle(0x2a0040));
     enhBtn.on('pointerout',  () => enhBtn.setFillStyle(0x1a0020));
     enhBtn.on('pointerdown', () => this.toggleEnhance());
+
+    // ── 제작소 버튼 ─────────────────────────────────
+    const craftBtn = this.add.rectangle(487, 672, 62, 32, 0x001a10)
+      .setStrokeStyle(2, 0x27ae60).setInteractive({ useHandCursor: true });
+    this.add.text(487, 672, '제작소', { fontSize: '12px', fill: '#aaffcc', fontStyle: 'bold' }).setOrigin(0.5);
+    craftBtn.on('pointerover', () => craftBtn.setFillStyle(0x003020));
+    craftBtn.on('pointerout',  () => craftBtn.setFillStyle(0x001a10));
+    craftBtn.on('pointerdown', () => this.toggleCraft());
 
     // ── 조작법 힌트 ────────────────────────────────
     // 박스: 우하단 (1270, 710) 기준, 280×50 → top=660, center=685
@@ -210,8 +221,6 @@ export default class UIScene extends Phaser.Scene {
     this._quickSlotDefs.forEach((def, i) => {
       const cx   = startX + i * gap;
       const isMp = def.key.startsWith('mp');
-      const clr  = isMp ? 0x2980b9 : 0xc0392b;
-
       // 슬롯 배경
       this.add.rectangle(cx, cy, size, size, 0x1a1a2e)
         .setStrokeStyle(2, isMp ? 0x3498db : 0x884444);
@@ -369,9 +378,16 @@ export default class UIScene extends Phaser.Scene {
         slotBg.setFillStyle(0x2c2c4a);
         this._hideItemTooltip();
       });
-      slotBg.on('pointerdown', () => this.onInventorySlotClick(i));
+      slotBg.on('pointerdown',  () => this.onInventorySlotClick(i));
+      // 우클릭(또는 두 번째 포인터 버튼) → 잠금 토글
+      slotBg.on('pointerup', (ptr) => {
+        if (ptr.rightButtonReleased()) {
+          const item = this.player?.inventory?.slots[i];
+          if (item) { item.locked = !item.locked; this.refreshInventory(); }
+        }
+      });
 
-      this.invSlotGfx.push({ bg: slotBg, icon: null, qty: null, cx, cy });
+      this.invSlotGfx.push({ bg: slotBg, icon: null, qty: null, lockIcon: null, cx, cy });
     }
 
     // 닫기 버튼
@@ -596,10 +612,30 @@ export default class UIScene extends Phaser.Scene {
           this.invPanel.add(gfx.qty);
         }
 
-        // 등급 색상 테두리
-        gfx.bg.setStrokeStyle(2, gradeHexColor(item.grade));
+        // 잠금 아이콘
+        if (item.locked) {
+          if (!gfx.lockIcon) {
+            gfx.lockIcon = this.add.text(gfx.cx + 2, gfx.cy + 2, '🔒', {
+              fontSize: '9px',
+            }).setDepth(2);
+            this.invPanel.add(gfx.lockIcon);
+          }
+        } else if (gfx.lockIcon) {
+          gfx.lockIcon.destroy(); gfx.lockIcon = null;
+        }
+
+        // 등급 색상: 테두리 굵게 + 배경색 미묘하게
+        const hexCol = gradeHexColor(item.grade);
+        const _BG = {
+          common: 0x2c2c2c, uncommon: 0x182818, rare: 0x181828,
+          epic: 0x201828,   legendary: 0x281e10, abyss: 0x250a0a,
+          transcendent: 0x280a28,
+        };
+        gfx.bg.setFillStyle(_BG[item.grade] ?? 0x2c2c4a);
+        gfx.bg.setStrokeStyle(3, hexCol);
       } else {
-        gfx.bg.setStrokeStyle(1, 0x444466);
+        if (gfx.lockIcon) { gfx.lockIcon.destroy(); gfx.lockIcon = null; }
+        gfx.bg.setFillStyle(0x2c2c4a).setStrokeStyle(1, 0x444466);
       }
     });
 
@@ -880,12 +916,25 @@ export default class UIScene extends Phaser.Scene {
   // 상점 패널 (구매 / 판매 탭)
   // ════════════════════════════════════════════════
   buildShopPanel() {
-    const pw = 400, ph = 520;
+    const pw = 400, ph = 480;
     const px = (1280 - pw) / 2, py = (720 - ph) / 2;
 
     this.shopPanel = this.add.container(px, py).setVisible(false);
-    this._shopTab = 'buy';
+    this._shopTab       = 'buy';
     this._shopSellOffset = 0;
+    this._shopBuyOffset  = 0;
+
+    // 상점 판매 아이템 목록 (정의를 buildShopPanel 내에 보관)
+    this._SHOP_ITEMS = [
+      { key: 'hp_potion_small',  price: 50   },
+      { key: 'hp_potion_medium', price: 200  },
+      { key: 'hp_potion_large',  price: 500  },
+      { key: 'mp_potion_small',  price: 80   },
+      { key: 'iron_sword',       price: 150  },
+      { key: 'leather_armor',    price: 120  },
+      { key: 'soldiers_sword',   price: 500  },
+      { key: 'resistance_ring',  price: 1200 },
+    ];
 
     const bg = this.add.rectangle(0, 0, pw, ph, 0x120f05, 0.97)
       .setOrigin(0).setStrokeStyle(2, 0xf39c12);
@@ -927,33 +976,36 @@ export default class UIScene extends Phaser.Scene {
     // 탭 아래 구분선
     this.shopPanel.add(this.add.rectangle(0, 76, pw, 1, 0x4a3a00).setOrigin(0));
 
-    // 구매 컨텐츠 컨테이너 (정적)
-    this.shopBuyContainer = this.add.container(0, 0);
+    // 구매/판매 컨텐츠 컨테이너 (동적 — 탭 전환 시 재빌드)
+    this.shopBuyContainer  = this.add.container(0, 0);
+    this.shopSellContainer = this.add.container(0, 0).setVisible(false);
     this.shopPanel.add(this.shopBuyContainer);
+    this.shopPanel.add(this.shopSellContainer);
 
-    const SHOP_ITEMS = [
-      { key: 'hp_potion_small',  price: 50   },
-      { key: 'hp_potion_medium', price: 200  },
-      { key: 'hp_potion_large',  price: 500  },
-      { key: 'mp_potion_small',  price: 80   },
-      { key: 'iron_sword',       price: 150  },
-      { key: 'leather_armor',    price: 120  },
-      { key: 'soldiers_sword',   price: 500  },
-      { key: 'resistance_ring',  price: 1200 },
-    ];
+    // 초기 구매 탭 렌더
+    this._buildBuyContent();
+  }
 
-    SHOP_ITEMS.forEach((si, i) => {
+  _buildBuyContent() {
+    const pw = 400;
+    this.shopBuyContainer.removeAll(true);
+    const pageSize = 6;
+    const offset = this._shopBuyOffset ?? 0;
+    const page = this._SHOP_ITEMS.slice(offset, offset + pageSize);
+
+    const ROW_H = 52; // 패널(480) - 헤더(84) = 396px / 6행 = 66px → 여유 있게 52
+    page.forEach((si, i) => {
       const data = ITEM_DATA[si.key];
       if (!data) return;
-      const ry = 84 + i * 68;
+      const ry = 82 + i * ROW_H;
 
-      const rowBg = this.add.rectangle(8, ry, pw - 16, 60, 0x1e1800).setOrigin(0).setStrokeStyle(1, 0x3a2800);
-      const icon  = this.add.image(38, ry + 30, data.texture).setDisplaySize(36, 36).setOrigin(0.5);
-      const nameT = this.add.text(64, ry + 10, data.name, { fontSize: '13px', fill: gradeColor(data.grade), fontStyle: 'bold' });
-      const descT = this.add.text(64, ry + 30, data.description?.slice(0, 26) ?? '', { fontSize: '10px', fill: '#888888' });
-      const priceT = this.add.text(pw - 110, ry + 22, `${si.price} G`, { fontSize: '14px', fill: '#f39c12', fontStyle: 'bold' }).setOrigin(0, 0.5);
-      const btn    = this.add.rectangle(pw - 42, ry + 30, 60, 30, 0x1a0e00).setStrokeStyle(2, 0xf39c12).setOrigin(0.5).setInteractive({ useHandCursor: true });
-      const btnTxt = this.add.text(pw - 42, ry + 30, '구매', { fontSize: '12px', fill: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+      const rowBg  = this.add.rectangle(8, ry, pw - 16, ROW_H - 4, 0x1e1800).setOrigin(0).setStrokeStyle(1, 0x3a2800);
+      const icon   = this.add.image(36, ry + (ROW_H - 4) / 2, data.texture).setDisplaySize(32, 32).setOrigin(0.5);
+      const nameT  = this.add.text(62, ry + 6, data.name, { fontSize: '12px', fill: gradeColor(data.grade), fontStyle: 'bold' });
+      const descT  = this.add.text(62, ry + 24, data.description?.slice(0, 28) ?? '', { fontSize: '10px', fill: '#888888' });
+      const priceT = this.add.text(pw - 112, ry + (ROW_H - 4) / 2, `${si.price} G`, { fontSize: '13px', fill: '#f39c12', fontStyle: 'bold' }).setOrigin(0, 0.5);
+      const btn    = this.add.rectangle(pw - 40, ry + (ROW_H - 4) / 2, 58, 28, 0x1a0e00).setStrokeStyle(2, 0xf39c12).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      const btnTxt = this.add.text(pw - 40, ry + (ROW_H - 4) / 2, '구매', { fontSize: '11px', fill: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
 
       btn.on('pointerover', () => btn.setFillStyle(0x3a2000));
       btn.on('pointerout',  () => btn.setFillStyle(0x1a0e00));
@@ -961,9 +1013,21 @@ export default class UIScene extends Phaser.Scene {
       this.shopBuyContainer.add([rowBg, icon, nameT, descT, priceT, btn, btnTxt]);
     });
 
-    // 판매 컨텐츠 컨테이너 (동적 — 탭 열릴 때마다 재빌드)
-    this.shopSellContainer = this.add.container(0, 0).setVisible(false);
-    this.shopPanel.add(this.shopSellContainer);
+    // 페이지 버튼
+    if (offset > 0) {
+      const up = this.add.text(pw / 2, 79, '▲ 이전', { fontSize: '11px', fill: '#f39c12' })
+        .setOrigin(0.5, 1).setInteractive({ useHandCursor: true });
+      up.on('pointerdown', () => { this._shopBuyOffset -= pageSize; this._buildBuyContent(); });
+      this.shopBuyContainer.add(up);
+    }
+    const total = this._SHOP_ITEMS.length;
+    if (offset + pageSize < total) {
+      const endY = 82 + pageSize * ROW_H + 4;
+      const dn = this.add.text(pw / 2, endY, `▼ 다음 (${total - offset - pageSize}개 더)`, { fontSize: '11px', fill: '#f39c12' })
+        .setOrigin(0.5, 0).setInteractive({ useHandCursor: true });
+      dn.on('pointerdown', () => { this._shopBuyOffset += pageSize; this._buildBuyContent(); });
+      this.shopBuyContainer.add(dn);
+    }
   }
 
   _switchShopTab(tab) {
@@ -987,11 +1051,25 @@ export default class UIScene extends Phaser.Scene {
     const p = this.player;
     if (!p) return;
 
-    // 인벤토리에서 팔 수 있는 아이템 수집
+    // 잠금 아이템 제외하고 팔 수 있는 아이템 수집
     const sellItems = [];
     p.inventory.slots.forEach((item, idx) => {
-      if (item) sellItems.push({ item, idx });
+      if (item && !item.locked) sellItems.push({ item, idx });
     });
+
+    // 일괄 판매 버튼 (항상 표시)
+    const allSellTotal = sellItems.reduce((sum, { item }) => sum + this._getSellPrice(item), 0);
+    if (allSellTotal > 0) {
+      const allBtn = this.add.rectangle(pw / 2, 79, pw - 20, 26, 0x3a0000)
+        .setOrigin(0.5, 0.5).setStrokeStyle(1, 0xe74c3c).setInteractive({ useHandCursor: true });
+      const allTxt = this.add.text(pw / 2, 79, `잠금해제 전체 판매  +${allSellTotal.toLocaleString()} G`, {
+        fontSize: '11px', fill: '#ffaaaa', fontStyle: 'bold',
+      }).setOrigin(0.5);
+      allBtn.on('pointerover', () => allBtn.setFillStyle(0x5a0000));
+      allBtn.on('pointerout',  () => allBtn.setFillStyle(0x3a0000));
+      allBtn.on('pointerdown', () => this._sellAll());
+      this.shopSellContainer.add([allBtn, allTxt]);
+    }
 
     if (sellItems.length === 0) {
       this.shopSellContainer.add(
@@ -1007,7 +1085,7 @@ export default class UIScene extends Phaser.Scene {
     const page     = sellItems.slice(offset, offset + pageSize);
 
     page.forEach(({ item, idx }, i) => {
-      const ry    = 84 + i * 68;
+      const ry    = 92 + i * 68; // 일괄판매 버튼 공간(+8)
       const price = this._getSellPrice(item);
       const qty   = item.stackable && item.quantity > 1 ? ` ×${item.quantity}` : '';
 
@@ -1049,8 +1127,7 @@ export default class UIScene extends Phaser.Scene {
       return unitPrice * (item.quantity ?? 1);
     }
     if (item.type === 'equipment') {
-      // 판매가 = 레벨 × 2 × 등급배율 (구매가의 20~30% 수준 유지)
-      const gradeVal = { common: 2, uncommon: 5, rare: 8, epic: 20, legendary: 50, abyss: 100 };
+      const gradeVal = { common: 2, uncommon: 5, rare: 8, epic: 20, legendary: 50, abyss: 100, transcendent: 300 };
       return Math.max(5, Math.floor((item.requiredLevel ?? 1) * 2 * (gradeVal[item.grade] ?? 2)));
     }
     return 10;
@@ -1058,8 +1135,25 @@ export default class UIScene extends Phaser.Scene {
 
   _sellItem(slotIndex, price) {
     const p = this.player;
+    if (p.inventory.slots[slotIndex]?.locked) return; // 잠금 아이템 판매 차단
     p.inventory.slots[slotIndex] = null;
     p.inventory.gold += price;
+    this.gameScene.events.emit('inventoryChanged', p.inventory);
+    this.refreshShop();
+    this.refreshAll();
+    this._buildSellContent();
+  }
+
+  _sellAll() {
+    const p = this.player;
+    let total = 0;
+    p.inventory.slots.forEach((item, idx) => {
+      if (item && !item.locked) {
+        total += this._getSellPrice(item);
+        p.inventory.slots[idx] = null;
+      }
+    });
+    p.inventory.gold += total;
     this.gameScene.events.emit('inventoryChanged', p.inventory);
     this.refreshShop();
     this.refreshAll();
@@ -1136,6 +1230,181 @@ export default class UIScene extends Phaser.Scene {
     this.enhOpen = !this.enhOpen;
     this.enhPanel.setVisible(this.enhOpen);
     if (this.enhOpen) this.refreshEnhance();
+  }
+
+  // ════════════════════════════════════════════════
+  // 제작소 패널
+  // ════════════════════════════════════════════════
+  buildCraftPanel() {
+    const pw = 480, ph = 540;
+    const px = (1280 - pw) / 2 + 240, py = (720 - ph) / 2;
+    this._craftOffset = 0;
+
+    this.craftPanel = this.add.container(px, py).setVisible(false);
+    const bg = this.add.rectangle(0, 0, pw, ph, 0x060f06, 0.97)
+      .setOrigin(0).setStrokeStyle(2, 0x27ae60);
+    this.craftPanel.add(bg);
+
+    this.craftPanel.add(this.add.text(pw / 2, 12, '제작소', {
+      fontSize: '18px', fill: '#27ae60', fontStyle: 'bold',
+    }).setOrigin(0.5, 0));
+
+    this.craftPanel.add(this.add.text(pw / 2, 36, '우클릭으로 아이템 잠금/해제', {
+      fontSize: '10px', fill: '#668866',
+    }).setOrigin(0.5, 0));
+
+    this.craftPanel.add(this.add.rectangle(0, 52, pw, 1, 0x1a4a1a).setOrigin(0));
+
+    // 재료 현황 (상단 우측)
+    this._craftMatText = this.add.text(pw - 10, 10, '', {
+      fontSize: '10px', fill: '#aaffaa', align: 'right',
+    }).setOrigin(1, 0);
+    this.craftPanel.add(this._craftMatText);
+
+    // 스크롤 컨테이너
+    this._craftListContainer = this.add.container(0, 0);
+    this.craftPanel.add(this._craftListContainer);
+
+    // 닫기
+    const closeBtn = this.add.text(pw - 10, 6, '✕', { fontSize: '18px', fill: '#e74c3c' })
+      .setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => this.toggleCraft());
+    this.craftPanel.add(closeBtn);
+  }
+
+  toggleCraft() {
+    this.craftOpen = this.craftOpen ? false : true;
+    this.craftPanel.setVisible(this.craftOpen);
+    if (this.craftOpen) this._buildCraftList();
+  }
+
+  _buildCraftList() {
+    if (!this.craftPanel) return;
+    this._craftListContainer.removeAll(true);
+
+    const pw = 480;
+    const pageSize = 6;
+    const offset   = this._craftOffset ?? 0;
+    const page = CRAFT_RECIPES.slice(offset, offset + pageSize);
+
+    // 재료 현황 표시
+    const inv = this.player.inventory;
+    const matKeys = ['blood_crystal', 'abyss_stone', 'bloodkin_emblem', 'iron_ore', 'leather'];
+    const matNames = { blood_crystal: '흡혈결정', abyss_stone: '심연석', bloodkin_emblem: '혈족문장', iron_ore: '철광석', leather: '가죽' };
+    const matSummary = matKeys.map(k => {
+      const slot = inv.slots.find(s => s?.key === k);
+      return `${matNames[k]}:${slot?.quantity ?? 0}`;
+    }).join('  ');
+    this._craftMatText?.setText(matSummary);
+
+    const ROW_H = 72;
+    page.forEach((recipe, i) => {
+      const result = ITEM_DATA[recipe.resultKey];
+      if (!result) return;
+      const ry = 58 + i * ROW_H;
+
+      // 재료 보유 여부 확인
+      const canCraft = recipe.materials.every(m => {
+        const slot = inv.slots.find(s => s?.key === m.key);
+        return (slot?.quantity ?? 0) >= m.qty;
+      });
+
+      const rowBg = this.add.rectangle(8, ry, pw - 16, ROW_H - 4, canCraft ? 0x0a1a0a : 0x120a0a)
+        .setOrigin(0).setStrokeStyle(1, canCraft ? 0x27ae60 : 0x332222);
+      const icon = this.add.image(36, ry + (ROW_H - 4) / 2, result.texture)
+        .setDisplaySize(36, 36).setOrigin(0.5);
+
+      const nameColor = gradeColor(result.grade);
+      const nameT = this.add.text(62, ry + 6, result.name, {
+        fontSize: '13px', fill: nameColor, fontStyle: 'bold',
+      });
+
+      // 재료 목록
+      const matLine = recipe.materials.map(m => {
+        const slot = inv.slots.find(s => s?.key === m.key);
+        const has  = slot?.quantity ?? 0;
+        return `${ITEM_DATA[m.key]?.name ?? m.key}×${m.qty}(${has})`;
+      }).join('  ');
+
+      const matT = this.add.text(62, ry + 26, matLine, {
+        fontSize: '9px', fill: canCraft ? '#88cc88' : '#886666',
+      });
+
+      // 제작 버튼
+      const btn = this.add.rectangle(pw - 44, ry + (ROW_H - 4) / 2, 68, 30,
+        canCraft ? 0x0d3a0d : 0x1a0a0a)
+        .setStrokeStyle(2, canCraft ? 0x27ae60 : 0x444444).setOrigin(0.5)
+        .setInteractive({ useHandCursor: canCraft });
+      const btnTxt = this.add.text(pw - 44, ry + (ROW_H - 4) / 2,
+        canCraft ? '제작' : '재료부족', {
+          fontSize: '11px', fill: canCraft ? '#aaffaa' : '#666666', fontStyle: 'bold',
+        }).setOrigin(0.5);
+
+      if (canCraft) {
+        btn.on('pointerover', () => btn.setFillStyle(0x1a5a1a));
+        btn.on('pointerout',  () => btn.setFillStyle(0x0d3a0d));
+        btn.on('pointerdown', () => this._craftItem(recipe));
+      }
+
+      this._craftListContainer.add([rowBg, icon, nameT, matT, btn, btnTxt]);
+    });
+
+    // 페이지 버튼
+    if (offset > 0) {
+      const up = this.add.text(pw / 2, 55, '▲', { fontSize: '12px', fill: '#27ae60' })
+        .setOrigin(0.5, 1).setInteractive({ useHandCursor: true });
+      up.on('pointerdown', () => { this._craftOffset -= pageSize; this._buildCraftList(); });
+      this._craftListContainer.add(up);
+    }
+    const totalH = 58 + pageSize * ROW_H;
+    if (offset + pageSize < CRAFT_RECIPES.length) {
+      const dn = this.add.text(pw / 2, totalH, `▼ (${CRAFT_RECIPES.length - offset - pageSize}개 더)`, {
+        fontSize: '12px', fill: '#27ae60',
+      }).setOrigin(0.5, 0).setInteractive({ useHandCursor: true });
+      dn.on('pointerdown', () => { this._craftOffset += pageSize; this._buildCraftList(); });
+      this._craftListContainer.add(dn);
+    }
+  }
+
+  _craftItem(recipe) {
+    const inv = this.player.inventory;
+    // 재료 소모
+    recipe.materials.forEach(m => {
+      const idx = inv.slots.findIndex(s => s?.key === m.key);
+      if (idx === -1) return;
+      inv.slots[idx].quantity -= m.qty;
+      if (inv.slots[idx].quantity <= 0) inv.slots[idx] = null;
+    });
+
+    // 결과 아이템 추가 (고등급이면 기본 잠금)
+    const added = this.gameScene.inventorySystem.addItem(inv, recipe.resultKey, 1);
+    if (added) {
+      // 잠금 여부 적용 (recipe.locked === true 이면 생성된 아이템 잠금)
+      if (recipe.locked) {
+        const newSlot = inv.slots.findIndex(s => s?.key === recipe.resultKey && !s.locked);
+        if (newSlot !== -1) inv.slots[newSlot].locked = true;
+      }
+      const result = ITEM_DATA[recipe.resultKey];
+      this._showCraftResult(`✔ ${result?.name ?? recipe.resultKey} 제작 완료!`, '#27ae60');
+    } else {
+      this._showCraftResult('인벤토리가 가득 찼습니다.', '#e74c3c');
+    }
+
+    this.gameScene.events.emit('inventoryChanged', inv);
+    this.refreshAll();
+    this._buildCraftList();
+  }
+
+  _showCraftResult(msg, color) {
+    if (this._craftResultTxt) this._craftResultTxt.destroy();
+    this._craftResultTxt = this.add.text(640, 360, msg, {
+      fontSize: '16px', fill: color, fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(600).setScrollFactor(0);
+    this.tweens.add({
+      targets: this._craftResultTxt, y: 320, alpha: 0, duration: 1800,
+      onComplete: () => { if (this._craftResultTxt) { this._craftResultTxt.destroy(); this._craftResultTxt = null; } },
+    });
   }
 
   refreshEnhance() {
@@ -1296,7 +1565,7 @@ export default class UIScene extends Phaser.Scene {
     this.settingsPanel.add([resumeBtn, resumeTxt, titleBtn, titleTxt]);
   }
 
-  _buildVolumeSlider(cx, y, label, key) {
+  _buildVolumeSlider(_cx, y, label, key) {
     const W = 360;
     const stored = parseFloat(localStorage.getItem(`vol_${key}`) ?? '1.0');
 
@@ -1325,7 +1594,7 @@ export default class UIScene extends Phaser.Scene {
     }).setOrigin(0, 0.5);
     this.settingsPanel.add(valTxt);
 
-    handle.on('drag', (pointer, dragX) => {
+    handle.on('drag', (pointer, _dragX) => {
       // settingsPanel 오프셋 보정
       const panelX = (1280 - 360) / 2;
       const localDragX = Phaser.Math.Clamp(pointer.x - panelX, trackX, trackX + trackW);
@@ -1349,5 +1618,99 @@ export default class UIScene extends Phaser.Scene {
     } else {
       this.gameScene.scene.resume('GameScene');
     }
+  }
+
+  // ════════════════════════════════════════════════
+  // 모바일 가상 D-pad (터치 기기에서만 표시)
+  // ════════════════════════════════════════════════
+  buildMobileDpad() {
+    // 터치 미지원 환경(데스크탑)이면 숨김 — 마우스로도 조작 가능하도록 setInteractive는 유지
+    const isMobile = this.sys.game.device.input.touch;
+
+    const CX = 110, CY = 620; // D-pad 중심
+    const R  = 36;            // 버튼 반지름
+    const DIRS = [
+      { label: '▲', dx: 0,  dy: -1, ox: 0,   oy: -R * 1.8 },
+      { label: '▼', dx: 0,  dy:  1, ox: 0,   oy:  R * 1.8 },
+      { label: '◀', dx: -1, dy:  0, ox: -R * 1.8, oy: 0   },
+      { label: '▶', dx:  1, dy:  0, ox:  R * 1.8, oy: 0   },
+    ];
+
+    // 공격 버튼 (화면 우하단)
+    const atkR = 36;
+    const atkCX = 1170, atkCY = 630;
+    const atkBg = this.add.circle(atkCX, atkCY, atkR, 0x440000, 0.78)
+      .setInteractive().setDepth(110);
+    this.add.text(atkCX, atkCY, '공격', {
+      fontSize: '14px', fill: '#ff6666', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(111);
+    atkBg.on('pointerdown', () => {
+      const p = this.player;
+      if (p?.isAlive) p.shoot(p.x, p.y - 100); // 위쪽으로 발사
+    });
+
+    // 회피 버튼
+    const dodgeBg = this.add.circle(1170, 560, 28, 0x002244, 0.78)
+      .setInteractive().setDepth(110);
+    this.add.text(1170, 560, '회피', {
+      fontSize: '12px', fill: '#88ccff', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(111);
+    dodgeBg.on('pointerdown', () => {
+      const p = this.player;
+      if (p?.keys?.dodge) {
+        // dodge 키 시뮬레이션: mobileDir 기준 방향으로 구르기
+        p.isDodging = false;
+        if (p.dodgeCooldown <= 0) {
+          const dx = p.mobileDir?.x || 0, dy = p.mobileDir?.y || 1;
+          p.isDodging = true; p.dodgeCooldown = 2000;
+          p.setVelocity(dx * 400, dy * 400);
+          p.setAlpha(0.5);
+          this.gameScene.time?.delayedCall(300, () => { if (p) { p.isDodging = false; p.setAlpha(1); } });
+        }
+      }
+    });
+
+    // D-pad 중심 배경
+    const padBg = this.add.circle(CX, CY, R * 2.6, 0x111122, 0.55).setDepth(110);
+
+    // 방향 버튼들
+    DIRS.forEach(({ label, dx, dy, ox, oy }) => {
+      const bx = CX + ox, by = CY + oy;
+      const btn = this.add.circle(bx, by, R, 0x222244, 0.82)
+        .setInteractive().setDepth(111);
+      this.add.text(bx, by, label, {
+        fontSize: '18px', fill: '#aaaacc',
+        stroke: '#000', strokeThickness: 2,
+      }).setOrigin(0.5).setDepth(112);
+
+      btn.on('pointerdown', () => {
+        btn.setFillStyle(0x4444aa, 0.9);
+        if (this.player) {
+          const cur = this.player.mobileDir ?? { x: 0, y: 0 };
+          this.player.mobileDir = { x: cur.x + dx, y: cur.y + dy };
+        }
+      });
+      btn.on('pointerup',   () => { btn.setFillStyle(0x222244, 0.82); this._clearMobileDir(dx, dy); });
+      btn.on('pointerout',  () => { btn.setFillStyle(0x222244, 0.82); this._clearMobileDir(dx, dy); });
+    });
+
+    // 터치 기기가 아니면 반투명하게 (마우스 테스트용으로는 남겨둠)
+    if (!isMobile) {
+      [padBg, atkBg, dodgeBg].forEach(o => o.setAlpha(0.3));
+    }
+  }
+
+  _clearMobileDir(dx, dy) {
+    if (!this.player?.mobileDir) return;
+    const cur = this.player.mobileDir;
+    this.player.mobileDir = {
+      x: cur.x - dx,
+      y: cur.y - dy,
+    };
+    // 0에 가깝게 클램핑 (누적 오류 방지)
+    if (Math.abs(this.player.mobileDir.x) < 0.01) this.player.mobileDir.x = 0;
+    if (Math.abs(this.player.mobileDir.y) < 0.01) this.player.mobileDir.y = 0;
   }
 }

@@ -20,6 +20,8 @@ const DIFF_TABLE = {
   3: { hpMult: 1.7, dmgMult: 1.5, speedMult: 1.4,  rewardMult: 2.0 },
   4: { hpMult: 2.2, dmgMult: 1.9, speedMult: 1.6,  rewardMult: 2.8 },
   5: { hpMult: 3.0, dmgMult: 2.5, speedMult: 1.8,  rewardMult: 4.0 },
+  6: { hpMult: 4.0, dmgMult: 3.2, speedMult: 2.0,  rewardMult: 6.0 },
+  7: { hpMult: 5.5, dmgMult: 4.0, speedMult: 2.2,  rewardMult: 9.0 },
 };
 
 // 웨이브 풀 (난이도에 따라 앞에서부터 waveCount-1개 사용 + 보스 웨이브)
@@ -34,11 +36,13 @@ const WAVE_POOL = [
 ];
 
 const BOSS_BY_DIFF = {
-  1: { key: 'blood_kin',     label: '보스' },
-  2: { key: 'blood_kin',     label: '보스' },
-  3: { key: 'shadow_knight', label: '보스' },
-  4: { key: 'shadow_knight', label: '보스' },
-  5: { key: 'blood_golem',   label: '최종 보스' },
+  1: { key: 'blood_kin',       label: '보스' },
+  2: { key: 'blood_kin',       label: '보스' },
+  3: { key: 'shadow_knight',   label: '보스' },
+  4: { key: 'shadow_knight',   label: '보스' },
+  5: { key: 'blood_golem',     label: '최종 보스' },
+  6: { key: 'void_archon',     label: '공허 보스' },
+  7: { key: 'abyss_sovereign', label: '심연 군주' },
 };
 
 export default class DungeonScene extends Phaser.Scene {
@@ -68,7 +72,8 @@ export default class DungeonScene extends Phaser.Scene {
     // 난이도에 따라 웨이브 목록 생성
     const diff    = this._difficulty;
     const diffCfg = DIFF_TABLE[diff] || DIFF_TABLE[1];
-    const waveCount = 3 + diff; // 난이도1→4웨이브 ~ 난이도5→8웨이브
+    // 난이도1→4, 난이도2→5, 난이도3+→6웨이브 고정
+    const waveCount = diff >= 3 ? 6 : 3 + diff;
     const boss    = BOSS_BY_DIFF[diff] || BOSS_BY_DIFF[1];
     this._waves   = [
       ...WAVE_POOL.slice(0, waveCount - 1),
@@ -378,6 +383,8 @@ export default class DungeonScene extends Phaser.Scene {
       3: ['crusader_sword', 'guard_helm', 'iron_plate', 'iron_gauntlets', 'abyss_pendant'],
       4: ['bloodkin_blade', 'bloodbound_armor', 'blood_crown', 'shadow_treads', 'abyss_ring'],
       5: ['demon_blade', 'void_bow', 'void_staff', 'abyss_plate', 'abyss_crown'],
+      6: ['demon_blade', 'soul_bow', 'void_staff', 'abyss_crown', 'void_sovereign_blade', 'abyss_sovereign_bow', 'transcendent_staff'],
+      7: ['void_sovereign_blade', 'abyss_sovereign_bow', 'transcendent_staff', 'transcendent_armor'],
     };
     const possibleItems = itemPools[this._difficulty] || itemPools[1];
     const count = Phaser.Math.Between(2, Math.min(3 + Math.floor(this._difficulty / 2), 5));
@@ -465,9 +472,10 @@ export default class DungeonScene extends Phaser.Scene {
     });
 
     // 직업 등급 상승
-    this.events.on('rankUp', ({ player, rankName }) => {
+    this.events.on('rankUp', ({ player, rankName, title }) => {
       this.showFloatText(player.x, player.y - 90, `★ ${rankName} ★`, '#f1c40f', '22px');
       this.sound.play('bgm_field', { loop: false, volume: 0.5 });
+      if (title) this._showTitleBanner(player, title);
     });
 
     // 플레이어 사망
@@ -542,7 +550,7 @@ export default class DungeonScene extends Phaser.Scene {
   updateWaveHUD() {
     const wave = this._waves?.[this._waveIdx];
     if (!wave) return;
-    const diffNames = { 1: '일반', 2: '고급', 3: '잔혹', 4: '악몽', 5: '심연' };
+    const diffNames = { 1: '일반', 2: '고급', 3: '잔혹', 4: '악몽', 5: '심연', 6: '공허', 7: '초월' };
     const diffName  = diffNames[this._difficulty] ?? '일반';
     this._waveText.setText(`[ 던전 [${diffName}] — ${wave.label} / 총 ${this._waves.length}웨이브 ]`);
   }
@@ -709,7 +717,7 @@ export default class DungeonScene extends Phaser.Scene {
   _showPickupNotice(itemName, grade) {
     const GRADE_COLOR = {
       common: '#aaaaaa', uncommon: '#2ecc71', rare: '#3498db',
-      epic: '#9b59b6', legendary: '#e67e22', abyss: '#c0392b',
+      epic: '#9b59b6', legendary: '#e67e22', abyss: '#c0392b', transcendent: '#ff69ff',
     };
     const color = GRADE_COLOR[grade] ?? '#ffffff';
 
@@ -783,6 +791,32 @@ export default class DungeonScene extends Phaser.Scene {
     this.tweens.add({ targets: t, y: y - 50, alpha: 0, duration: 1500, onComplete: () => t.destroy() });
   }
 
+  /** 50레벨 달성 칭호 전용 화면 중앙 배너 */
+  _showTitleBanner(player, title) {
+    const bg = this.add.rectangle(DW / 2, DH / 2 - 30, 480, 100, 0x0a0005, 0.92)
+      .setScrollFactor(0).setDepth(250).setStrokeStyle(2, 0xff69ff);
+    const line1 = this.add.text(DW / 2, DH / 2 - 60, '★  칭호 획득  ★', {
+      fontSize: '14px', fill: '#ff69ff', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(251);
+    const line2 = this.add.text(DW / 2, DH / 2 - 28, title, {
+      fontSize: '26px', fill: '#ffffff', fontStyle: 'bold',
+      stroke: '#330033', strokeThickness: 5,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(251);
+    const line3 = this.add.text(DW / 2, DH / 2 + 2, `${player.jobData.name} (Lv.${player.level})`, {
+      fontSize: '13px', fill: '#cc88ff',
+      stroke: '#000', strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(251);
+
+    const objs = [bg, line1, line2, line3];
+    this.time.delayedCall(2000, () => {
+      this.tweens.add({
+        targets: objs, alpha: 0, duration: 800,
+        onComplete: () => objs.forEach(o => o.destroy()),
+      });
+    });
+  }
+
   showWaveBanner(label, isBoss = false, color) {
     const col = color ?? (isBoss ? '#ff4444' : '#ffffff');
     const t = this.add.text(DW / 2, DH / 2, label, {
@@ -851,8 +885,107 @@ export default class DungeonScene extends Phaser.Scene {
       return b.tick(delta, this.monsters.getChildren(), this);
     });
 
+    // 신규 보스 원거리 패턴 업데이트
+    this._updateRangedBosses(delta);
+
     this.updateHUD();
     this.updateInteractables();
+  }
+
+  // ── 신규 보스 원거리 공격 패턴 ──────────────────────────────
+  _updateRangedBosses(delta) {
+    this.monsters.getChildren().forEach(m => {
+      if (!m.isAlive || !m.isBoss) return;
+      const data = m.monsterData;
+      if (!data.isRangedBoss) return;
+
+      // 방사형 탄막 (spread_shot) 타이머
+      m._spreadTimer = (m._spreadTimer ?? 0) - delta;
+      if (m._spreadTimer <= 0) {
+        m._spreadTimer = 4000; // 4초마다
+        this._bossSpreaSd(m);
+      }
+
+      // 지역형 바닥 예고 공격 (area_warning) 타이머
+      if (data.hasAreaAttack) {
+        m._areaTimer = (m._areaTimer ?? 0) - delta;
+        if (m._areaTimer <= 0) {
+          m._areaTimer = 6000; // 6초마다
+          this._bossAreaWarning(m);
+        }
+      }
+    });
+  }
+
+  /** 방사형 탄막: N방향으로 탄환 발사 */
+  _bossSpreaSd(boss) {
+    if (!boss.isAlive || !this.player?.isAlive) return;
+    const count  = boss.monsterData.spreadCount ?? 8;
+    const color  = boss.monsterData.projColor   ?? 0xff0088;
+    const speed  = boss.monsterData.projSpeed   ?? 220;
+    const damage = Math.floor(boss.damage * 0.6); // 개당 데미지 60%
+    const angleStep = (Math.PI * 2) / count;
+
+    for (let i = 0; i < count; i++) {
+      const angle = i * angleStep;
+      const tx = boss.x + Math.cos(angle) * 500;
+      const ty = boss.y + Math.sin(angle) * 500;
+      this._monsterBullets = this._monsterBullets ?? [];
+      this._monsterBullets.push(new Projectile(this, boss.x, boss.y, tx, ty, {
+        damage,
+        speed,
+        maxRange: 520,
+        color,
+        sizeScale: 1.4,
+        isMonsterBullet: true,
+      }));
+    }
+
+    // 시각 효과
+    const g = this.add.graphics().setDepth(20).setPosition(boss.x, boss.y);
+    g.fillStyle(color, 0.25); g.fillCircle(0, 0, 60);
+    this.tweens.add({ targets: g, alpha: 0, scaleX: 2.5, scaleY: 2.5, duration: 400, onComplete: () => g.destroy() });
+    this.cameras.main.shake(120, 0.006);
+  }
+
+  /** 지역형 바닥 예고 공격: 플레이어 위치에 1.5초 예고 후 폭발 */
+  _bossAreaWarning(boss) {
+    if (!boss.isAlive || !this.player?.isAlive) return;
+    const px = this.player.x, py = this.player.y;
+    const radius = 100;
+    const damage = Math.floor(boss.damage * 1.2);
+
+    // 예고 원 (빨간 점선)
+    const g = this.add.graphics().setDepth(7).setPosition(px, py);
+    g.lineStyle(3, 0xff2200, 0.8); g.strokeCircle(0, 0, radius);
+    g.fillStyle(0xff0000, 0.12);   g.fillCircle(0, 0, radius);
+
+    // 카운트다운 텍스트
+    const warn = this.add.text(px, py - radius - 14, '⚠ 위험 ⚠', {
+      fontSize: '13px', fill: '#ff4400', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(20);
+
+    // 1.5초 후 폭발
+    this.time.delayedCall(1500, () => {
+      g.destroy(); warn.destroy();
+      if (!this.scene.isActive('DungeonScene')) return;
+
+      const exp = this.add.graphics().setDepth(20).setPosition(px, py);
+      exp.fillStyle(0xff4400, 0.85); exp.fillCircle(0, 0, radius);
+      exp.fillStyle(0xffaa00, 0.6);  exp.fillCircle(0, 0, radius * 0.5);
+      this.tweens.add({ targets: exp, alpha: 0, scaleX: 1.5, scaleY: 1.5, duration: 500, onComplete: () => exp.destroy() });
+      this.cameras.main.shake(180, 0.008);
+
+      // 범위 내 플레이어 타격
+      if (this.player?.isAlive) {
+        const dist = Phaser.Math.Distance.Between(px, py, this.player.x, this.player.y);
+        if (dist < radius) {
+          this.player.takeDamage(damage, 0, null);
+          this.sound.play('sfx_hit_player', { volume: 0.5 });
+        }
+      }
+    });
   }
 
   updateInteractables() {

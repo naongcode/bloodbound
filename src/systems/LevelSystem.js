@@ -1,4 +1,4 @@
-import { getRequiredXP, calcMaxHp, calcMaxMp, calcMoveSpeed, BASE_STATS } from '../data/jobs.js';
+import { getRequiredXP, calcMaxHp, calcMaxMp, calcMoveSpeed } from '../data/jobs.js';
 
 // ── 직업 등급 ─────────────────────────────────────────────
 const RANK_THRESHOLDS = [
@@ -6,7 +6,7 @@ const RANK_THRESHOLDS = [
   { level: 20, prefix: '숙련 ' },
   { level: 30, prefix: '고급 ' },
   { level: 40, prefix: '달인 ' },
-  { level: 50, prefix: '전설의 ' },
+  { level: 50, prefix: '전설의 ', title: '혈계의 지배자' },
 ];
 
 export function getJobRankName(player) {
@@ -50,20 +50,32 @@ export default class LevelSystem {
     player.level += 1;
     player.skillPoints += 1;
 
-    // 스탯 성장 적용
+    // 스탯 성장 — baseStats와 stats 모두 갱신 (recalcStats가 baseStats 기준으로 동작)
     const growth = player.jobData.statGrowth;
     Object.keys(growth).forEach(stat => {
-      player.stats[stat] += growth[stat];
+      player.stats[stat]    = (player.stats[stat]    || 0) + growth[stat];
+      player.baseStats[stat] = (player.baseStats[stat] || 0) + growth[stat];
     });
 
-    // HP/MP 최대치 재계산 및 풀 회복
-    player.maxHp = calcMaxHp(player.jobData, player.stats, player.level);
-    player.maxMp = calcMaxMp(player.jobData, player.stats, player.level);
+    // 장비 포함 totalStats 재계산 (InventorySystem.recalcStats와 동일 로직)
+    const total = { ...player.baseStats };
+    Object.values(player.inventory?.equipment ?? {}).forEach(item => {
+      if (!item?.stats) return;
+      Object.entries(item.stats).forEach(([k, v]) => {
+        total[k] = (total[k] || 0) + v;
+      });
+    });
+    player.totalStats = total;
+
+    // HP/MP 최대치 재계산 (장비 스탯 반영) 및 풀 회복
+    player.maxHp = calcMaxHp(player.jobData, player.totalStats, player.level);
+    player.maxMp = calcMaxMp(player.jobData, player.totalStats, player.level);
     player.hp = player.maxHp;
     player.mp = player.maxMp;
 
-    // 이동속도 재계산
-    player.moveSpeed = calcMoveSpeed(player.stats.AGI || 10);
+    // 이동속도 재계산 (AGI + 장비 moveSpeed 보너스)
+    player.moveSpeed = calcMoveSpeed(player.totalStats.AGI || 10)
+                     + Math.floor(player.totalStats.moveSpeed || 0);
 
     this.scene.events.emit('levelUp', { player, level: player.level });
 
@@ -71,7 +83,7 @@ export default class LevelSystem {
     const crossed = RANK_THRESHOLDS.find(r => prevLevel < r.level && player.level >= r.level);
     if (crossed) {
       const rankName = crossed.prefix + player.jobData.name;
-      this.scene.events.emit('rankUp', { player, rankName });
+      this.scene.events.emit('rankUp', { player, rankName, title: crossed.title ?? null });
     }
   }
 

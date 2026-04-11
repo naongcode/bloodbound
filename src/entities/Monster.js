@@ -241,6 +241,10 @@ export default class Monster extends Phaser.Physics.Arcade.Sprite {
 
   // ── 피격 ─────────────────────────────────────────────────
   takeDamage(amount, isCrit = false) {
+    // 신규 보스: 플레이어 일격당 최대 데미지 제한 (너무 빨리 끝나지 않도록)
+    if (this.monsterData.maxPlayerDamagePerHit) {
+      amount = Math.min(amount, this.monsterData.maxPlayerDamagePerHit);
+    }
     const rawAmount = amount; // 파훼 누적은 감소 전 원본 피해로 계산
 
     // 방어 상태 중 피해 감소

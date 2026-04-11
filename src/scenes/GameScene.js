@@ -281,9 +281,10 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // 직업 등급 상승
-    this.events.on('rankUp', ({ player, rankName }) => {
+    this.events.on('rankUp', ({ player, rankName, title }) => {
       this.showFloatText(player.x, player.y - 90, `★ ${rankName} ★`, '#f1c40f', '22px');
       this.sound.play('bgm_field', { loop: false, volume: 0.5 });
+      if (title) this._showTitleBanner(player, title);
     });
 
     // 플레이어 사망
@@ -412,6 +413,35 @@ export default class GameScene extends Phaser.Scene {
       alpha: 0,
       duration: 1500,
       onComplete: () => text.destroy()
+    });
+  }
+
+  /** 50레벨 달성 칭호 전용 화면 중앙 배너 */
+  _showTitleBanner(player, title) {
+    const W = 1280, H = 720;
+    // 배경 패널
+    const bg = this.add.rectangle(W / 2, H / 2 - 30, 480, 100, 0x0a0005, 0.92)
+      .setScrollFactor(0).setDepth(250).setStrokeStyle(2, 0xff69ff);
+    const line1 = this.add.text(W / 2, H / 2 - 60, '★  칭호 획득  ★', {
+      fontSize: '14px', fill: '#ff69ff', fontStyle: 'bold',
+      stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(251);
+    const line2 = this.add.text(W / 2, H / 2 - 28, title, {
+      fontSize: '26px', fill: '#ffffff', fontStyle: 'bold',
+      stroke: '#330033', strokeThickness: 5,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(251);
+    const line3 = this.add.text(W / 2, H / 2 + 2, `${player.jobData.name} (Lv.${player.level})`, {
+      fontSize: '13px', fill: '#cc88ff',
+      stroke: '#000', strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(251);
+
+    const objs = [bg, line1, line2, line3];
+    // 3.5초 후 페이드아웃
+    this.time.delayedCall(2000, () => {
+      this.tweens.add({
+        targets: objs, alpha: 0, duration: 800,
+        onComplete: () => objs.forEach(o => o.destroy()),
+      });
     });
   }
 
@@ -673,20 +703,21 @@ export default class GameScene extends Phaser.Scene {
 
   _showDifficultyPanel() {
     const W = 1280, H = 720;
-    const PW = 520, PH = 440;
+    const PW = 640, PH = 430;
     const px = (W - PW) / 2, py = (H - PH) / 2;
-    const D  = 500; // depth
+    const D  = 500;
     const sf = obj => { obj.setScrollFactor(0).setDepth(D); return obj; };
 
     const DIFFS = [
-      { level: 1, name: '일반', color: 0x2ecc71, waves: 4, rewardMult: 1.0, desc: '입문자용. 기본 구성.' },
-      { level: 2, name: '고급', color: 0x3498db, waves: 5, rewardMult: 1.4, desc: 'HP×1.3 / 데미지×1.2' },
-      { level: 3, name: '잔혹', color: 0x9b59b6, waves: 6, rewardMult: 2.0, desc: 'HP×1.7 / 데미지×1.5' },
-      { level: 4, name: '악몽', color: 0xe67e22, waves: 7, rewardMult: 2.8, desc: 'HP×2.2 / 데미지×1.9' },
-      { level: 5, name: '심연', color: 0xe74c3c, waves: 8, rewardMult: 4.0, desc: 'HP×3.0 / 데미지×2.5  최고 보상' },
+      { level: 1, name: '일반', color: 0x2ecc71, waves: 4, rewardMult: 1.0,  desc: '입문자용. 기본 구성.' },
+      { level: 2, name: '고급', color: 0x3498db, waves: 5, rewardMult: 1.4,  desc: 'HP×1.3 / 데미지×1.2' },
+      { level: 3, name: '잔혹', color: 0x9b59b6, waves: 6, rewardMult: 2.0,  desc: 'HP×1.7 / 데미지×1.5' },
+      { level: 4, name: '악몽', color: 0xe67e22, waves: 6, rewardMult: 2.8,  desc: 'HP×2.2 / 데미지×1.9' },
+      { level: 5, name: '심연', color: 0xe74c3c, waves: 6, rewardMult: 4.0,  desc: 'HP×3.0 / 데미지×2.5' },
+      { level: 6, name: '공허', color: 0xaa00ff, waves: 6, rewardMult: 6.0,  desc: 'HP×4.0 / 데미지×3.2  신규 보스' },
+      { level: 7, name: '초월', color: 0xff69ff, waves: 6, rewardMult: 9.0,  desc: 'HP×5.5 / 데미지×4.0  최고 보상' },
     ];
 
-    // 모든 요소를 배열로 관리 (Container 미사용 — 입력 히트 영역 문제 방지)
     this._diffEls = [];
     const add = obj => { this._diffEls.push(obj); return sf(obj); };
     const destroy = () => { this._diffEls.forEach(o => o.destroy()); this._diffEls = null; this._diffPanel = false; };
@@ -696,23 +727,31 @@ export default class GameScene extends Phaser.Scene {
     // 패널 배경
     add(this.add.rectangle(px + PW / 2, py + PH / 2, PW, PH, 0x0a0005, 0.97)).setStrokeStyle(2, 0xc0392b);
     // 타이틀
-    add(this.add.text(W / 2, py + 18, '던전 난이도 선택', { fontSize: '20px', fill: '#e74c3c', fontStyle: 'bold' }).setOrigin(0.5, 0));
+    add(this.add.text(W / 2, py + 14, '던전 난이도 선택', { fontSize: '18px', fill: '#e74c3c', fontStyle: 'bold' }).setOrigin(0.5, 0));
     // 구분선
-    add(this.add.rectangle(px + PW / 2, py + 51, PW, 1, 0x4a0000));
+    add(this.add.rectangle(px + PW / 2, py + 42, PW, 1, 0x4a0000));
 
+    // 각 행: 한 줄로 [레벨/이름] [설명] [웨이브] [보상]
+    const ROW_H = 48;
     DIFFS.forEach((d, i) => {
-      const rx = px + 10,  ry = py + 60 + i * 72;
+      const ry = py + 50 + i * ROW_H;
       const colorHex = '#' + d.color.toString(16).padStart(6, '0');
 
-      const rowBg = add(this.add.rectangle(rx + (PW - 20) / 2, ry + 32, PW - 20, 64, 0x150005)
-        .setStrokeStyle(1, d.color, 0.5).setInteractive({ useHandCursor: true }));
+      const rowBg = add(this.add.rectangle(px + PW / 2, ry + ROW_H / 2, PW - 16, ROW_H - 4, 0x150005)
+        .setStrokeStyle(1, d.color, 0.4).setInteractive({ useHandCursor: true }));
 
-      add(this.add.text(rx + 10,       ry + 10, `Lv.${d.level}  ${d.name}`, { fontSize: '16px', fill: colorHex, fontStyle: 'bold' }).setOrigin(0, 0));
-      add(this.add.text(rx + 10,       ry + 34, d.desc,  { fontSize: '11px', fill: '#aaaaaa' }).setOrigin(0, 0));
-      add(this.add.text(px + PW - 120, ry + 14, `${d.waves}웨이브`, { fontSize: '13px', fill: '#cccccc' }).setOrigin(0, 0));
-      add(this.add.text(px + PW - 120, ry + 34, `보상 ×${d.rewardMult}`, { fontSize: '12px', fill: '#f39c12' }).setOrigin(0, 0));
+      // 레벨 뱃지
+      add(this.add.text(px + 14, ry + ROW_H / 2, `Lv.${d.level}`, { fontSize: '13px', fill: colorHex, fontStyle: 'bold' }).setOrigin(0, 0.5));
+      // 난이도 이름
+      add(this.add.text(px + 60, ry + ROW_H / 2, d.name, { fontSize: '15px', fill: colorHex, fontStyle: 'bold' }).setOrigin(0, 0.5));
+      // 설명
+      add(this.add.text(px + 130, ry + ROW_H / 2, d.desc, { fontSize: '11px', fill: '#aaaaaa' }).setOrigin(0, 0.5));
+      // 웨이브 수
+      add(this.add.text(px + PW - 155, ry + ROW_H / 2, `${d.waves}웨이브`, { fontSize: '12px', fill: '#cccccc' }).setOrigin(0, 0.5));
+      // 보상 배율
+      add(this.add.text(px + PW - 80, ry + ROW_H / 2, `×${d.rewardMult}`, { fontSize: '13px', fill: '#f39c12', fontStyle: 'bold' }).setOrigin(0, 0.5));
 
-      rowBg.on('pointerover',  () => rowBg.setFillStyle(0x2a0010));
+      rowBg.on('pointerover',  () => rowBg.setFillStyle(0x2a0018));
       rowBg.on('pointerout',   () => rowBg.setFillStyle(0x150005));
       rowBg.on('pointerdown',  () => {
         destroy();
@@ -724,13 +763,13 @@ export default class GameScene extends Phaser.Scene {
             jobKey: this._jobKey, charId: this._charId,
             loadSave: true, multi: this._isMulti, difficulty: d.level,
           });
-          this.scene.sleep();  // 파괴하지 않고 대기
+          this.scene.sleep();
         });
       });
     });
 
     // 취소 버튼
-    const cancelBtn = add(this.add.text(W / 2, py + PH - 18, '취소', { fontSize: '14px', fill: '#888888' })
+    const cancelBtn = add(this.add.text(W / 2, py + PH - 12, '취소', { fontSize: '13px', fill: '#888888' })
       .setOrigin(0.5, 1).setInteractive({ useHandCursor: true }));
     cancelBtn.on('pointerdown', destroy);
     cancelBtn.on('pointerover', () => cancelBtn.setStyle({ fill: '#ffffff' }));

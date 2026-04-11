@@ -325,6 +325,83 @@ export const MONSTER_DATA = {
       { itemKey: 'abyss_pendant',   chance: 0.07, quantity: [1, 1] },
     ]
   },
+
+  // ── 신규 보스 — 던전 난이도 6 ───────────────────────────────
+  // 원거리 보스: 방사형 탄막 공격
+  void_archon: {
+    key: 'void_archon',
+    name: '공허 대주교',
+    texture: 'monster_mage',
+    level: 75,
+    baseHp: 2200,
+    baseDamage: 130,
+    defense: 55,
+    magicResist: 50,
+    speed: 65,
+    xpReward: 1200,
+    goldReward: { min: 400, max: 800 },
+    drainRate: 0.20,
+    drainType: 'normal',
+    attackRange: 360,
+    attackCooldown: 2800,
+    aggroRange: 450,
+    isRanged: true,
+    isRangedBoss: true,         // 방사형 탄막 패턴 플래그
+    spreadCount: 8,             // 방사형 탄막 수
+    projColor: 0xaa00ff,
+    projSpeed: 230,
+    maxPlayerDamagePerHit: 650, // 플레이어 일격당 최대 데미지 제한
+    patterns: ['spread_shot'],
+    dropTable: [
+      { itemKey: 'abyss_stone',          chance: 0.8,  quantity: [3, 6] },
+      { itemKey: 'bloodkin_emblem',       chance: 0.5,  quantity: [2, 4] },
+      { itemKey: 'demon_blade',           chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'soul_bow',             chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'void_staff',           chance: 0.08, quantity: [1, 1] },
+      { itemKey: 'abyss_plate',          chance: 0.07, quantity: [1, 1] },
+      { itemKey: 'abyss_crown',          chance: 0.07, quantity: [1, 1] },
+      { itemKey: 'void_sovereign_blade', chance: 0.04, quantity: [1, 1] },
+      { itemKey: 'abyss_sovereign_bow',  chance: 0.04, quantity: [1, 1] },
+      { itemKey: 'transcendent_staff',   chance: 0.04, quantity: [1, 1] },
+    ]
+  },
+
+  // ── 신규 보스 — 던전 난이도 7 ───────────────────────────────
+  // 원거리 보스: 방사형 + 지역형(바닥 예고) 공격
+  abyss_sovereign: {
+    key: 'abyss_sovereign',
+    name: '심연의 군주',
+    texture: 'monster_golem',
+    level: 90,
+    baseHp: 3500,
+    baseDamage: 175,
+    defense: 75,
+    magicResist: 60,
+    speed: 50,
+    xpReward: 2000,
+    goldReward: { min: 800, max: 1600 },
+    drainRate: 0.30,
+    drainType: 'curse',
+    attackRange: 400,
+    attackCooldown: 3200,
+    aggroRange: 500,
+    isRanged: true,
+    isRangedBoss: true,         // 방사형 탄막 패턴 플래그
+    hasAreaAttack: true,        // 지역형 바닥 예고 공격 플래그
+    spreadCount: 12,            // 방사형 탄막 수
+    projColor: 0x660000,
+    projSpeed: 200,
+    maxPlayerDamagePerHit: 900, // 플레이어 일격당 최대 데미지 제한
+    patterns: ['spread_shot', 'area_warning'],
+    dropTable: [
+      { itemKey: 'abyss_stone',          chance: 0.9,  quantity: [5, 10] },
+      { itemKey: 'bloodkin_emblem',       chance: 0.7,  quantity: [3, 6] },
+      { itemKey: 'void_sovereign_blade', chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'abyss_sovereign_bow',  chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'transcendent_staff',   chance: 0.10, quantity: [1, 1] },
+      { itemKey: 'transcendent_armor',   chance: 0.08, quantity: [1, 1] },
+    ]
+  },
 };
 
 // ── 누적 처치 특별 몬스터 (25킬마다 등장, 웨이브 누적 강화) ──────────

@@ -1,12 +1,13 @@
 // 아이템 데이터 정의 (game_design_document.md 기반)
 
 export const ITEM_GRADES = {
-  COMMON:    { key: 'common',    label: '일반', color: '#aaaaaa' },
-  UNCOMMON:  { key: 'uncommon',  label: '고급', color: '#2ecc71' },
-  RARE:      { key: 'rare',      label: '희귀', color: '#3498db' },
-  EPIC:      { key: 'epic',      label: '영웅', color: '#9b59b6' },
-  LEGENDARY: { key: 'legendary', label: '전설', color: '#e67e22' },
-  ABYSS:     { key: 'abyss',     label: '심연', color: '#c0392b' },
+  COMMON:       { key: 'common',       label: '일반', color: '#aaaaaa' },
+  UNCOMMON:     { key: 'uncommon',     label: '고급', color: '#2ecc71' },
+  RARE:         { key: 'rare',         label: '희귀', color: '#3498db' },
+  EPIC:         { key: 'epic',         label: '영웅', color: '#9b59b6' },
+  LEGENDARY:    { key: 'legendary',    label: '전설', color: '#e67e22' },
+  ABYSS:        { key: 'abyss',        label: '심연', color: '#c0392b' },
+  TRANSCENDENT: { key: 'transcendent', label: '초월', color: '#ff69ff' },
 };
 
 export const ITEM_SLOTS = {
@@ -25,6 +26,7 @@ export const ITEM_SLOTS = {
 const _GRADE_HEX_MAP = {
   common: 0x888888, uncommon: 0x2ecc71, rare: 0x3498db,
   epic:   0x9b59b6, legendary: 0xe67e22, abyss: 0xc0392b,
+  transcendent: 0xff69ff,
 };
 
 /** 텍스트용 CSS 색상 문자열 반환 (예: '#3498db') */
@@ -407,6 +409,39 @@ export const ITEM_DATA = {
     stats: { STR: 15, INT: 15, critDamage: 0.25 },
     description: '전사와 마법사 모두에게 어울리는 만능 초커.'
   },
+
+  // ═══════════════════════════════════════════
+  // 초월 등급 — 던전 최고 난이도 전용 드롭
+  // ═══════════════════════════════════════════
+  void_sovereign_blade: {
+    key: 'void_sovereign_blade', name: '공허 군주의 검',
+    type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'transcendent',
+    texture: 'item_sword', requiredLevel: 40,
+    stats: { STR: 120, attackPower: 420, critRate: 0.18, critDamage: 0.60, VIT: 30 },
+    description: '공허를 지배하는 군주만이 다룰 수 있는 초월적인 검. 존재 자체가 위협이다.'
+  },
+  abyss_sovereign_bow: {
+    key: 'abyss_sovereign_bow', name: '심연 군주의 장궁',
+    type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'transcendent',
+    texture: 'item_bow', requiredLevel: 40,
+    stats: { AGI: 140, attackPower: 390, critRate: 0.25, critDamage: 0.70, INT: 20 },
+    description: '심연의 에너지로 만든 장궁. 화살 하나하나가 영혼을 관통한다.'
+  },
+  transcendent_staff: {
+    key: 'transcendent_staff', name: '초월의 지팡이',
+    type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'transcendent',
+    texture: 'item_staff', requiredLevel: 40,
+    stats: { INT: 180, attackPower: 370, WIS: 50, critDamage: 0.55, RES: 30 },
+    description: '차원을 초월한 마법사만이 다룰 수 있는 지팡이. 마법이 현실을 왜곡한다.'
+  },
+  transcendent_armor: {
+    key: 'transcendent_armor', name: '초월자의 갑옷',
+    type: 'equipment', slot: ITEM_SLOTS.ARMOR, grade: 'transcendent',
+    texture: 'item_armor', requiredLevel: 40,
+    stats: { VIT: 100, defense: 220, RES: 70, STR: 30, INT: 30 },
+    description: '초월의 영역에 도달한 자의 갑옷. 어떤 공격도 쉽게 통하지 않는다.'
+  },
+
   // 소모품
   hp_potion_small: {
     key: 'hp_potion_small',
