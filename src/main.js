@@ -42,3 +42,6 @@ const config = {
 };
 
 new Phaser.Game(config);
+
+// 우클릭 컨텍스트 메뉴 비활성화
+window.addEventListener('contextmenu', e => e.preventDefault());

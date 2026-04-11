@@ -7,7 +7,7 @@ export const ITEM_GRADES = {
   EPIC:         { key: 'epic',         label: '영웅', color: '#9b59b6' },
   LEGENDARY:    { key: 'legendary',    label: '전설', color: '#e67e22' },
   ABYSS:        { key: 'abyss',        label: '심연', color: '#c0392b' },
-  TRANSCENDENT: { key: 'transcendent', label: '초월', color: '#ff69ff' },
+  TRANSCENDENT: { key: 'transcendent', label: '초월', color: '#ffe066' },
 };
 
 export const ITEM_SLOTS = {
@@ -26,7 +26,7 @@ export const ITEM_SLOTS = {
 const _GRADE_HEX_MAP = {
   common: 0x888888, uncommon: 0x2ecc71, rare: 0x3498db,
   epic:   0x9b59b6, legendary: 0xe67e22, abyss: 0xc0392b,
-  transcendent: 0xff69ff,
+  transcendent: 0xffe066,
 };
 
 /** 텍스트용 CSS 색상 문자열 반환 (예: '#3498db') */
@@ -408,6 +408,80 @@ export const ITEM_DATA = {
     texture: 'item_necklace', requiredLevel: 23,
     stats: { STR: 15, INT: 15, critDamage: 0.25 },
     description: '전사와 마법사 모두에게 어울리는 만능 초커.'
+  },
+
+  // ═══════════════════════════════════════════
+  // 심연 등급 — 심연 던전(난이도 5) 전용 드롭
+  // ═══════════════════════════════════════════
+  abyss_edge: {
+    key: 'abyss_edge', name: '심연의 날',
+    type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'abyss',
+    texture: 'item_sword', requiredLevel: 35,
+    stats: { STR: 80, attackPower: 260, critRate: 0.12, critDamage: 0.40, VIT: 20 },
+    description: '심연의 어둠을 흡수한 검. 베인 상처에서 생명력이 흘러나온다.'
+  },
+  abyss_longbow: {
+    key: 'abyss_longbow', name: '심연의 장궁',
+    type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'abyss',
+    texture: 'item_bow', requiredLevel: 35,
+    stats: { AGI: 90, attackPower: 245, critRate: 0.15, critDamage: 0.45, INT: 15 },
+    description: '심연에서 채취한 흑목으로 만든 장궁. 화살이 어둠을 타고 날아간다.'
+  },
+  abyss_grimoire: {
+    key: 'abyss_grimoire', name: '심연의 마도서',
+    type: 'equipment', slot: ITEM_SLOTS.WEAPON, grade: 'abyss',
+    texture: 'item_staff', requiredLevel: 35,
+    stats: { INT: 110, attackPower: 230, WIS: 35, critDamage: 0.40, RES: 20 },
+    description: '심연의 금지된 주문이 기록된 마도서. 읽는 것만으로도 정신이 흔들린다.'
+  },
+  abyss_helm: {
+    key: 'abyss_helm', name: '심연의 투구',
+    type: 'equipment', slot: ITEM_SLOTS.HELMET, grade: 'abyss',
+    texture: 'item_helmet', requiredLevel: 35,
+    stats: { VIT: 55, defense: 120, STR: 20, critRate: 0.04 },
+    description: '심연의 군주가 쓰던 투구. 착용자에게 어둠의 의지를 부여한다.'
+  },
+  abyss_robe: {
+    key: 'abyss_robe', name: '심연의 흑갑옷',
+    type: 'equipment', slot: ITEM_SLOTS.ARMOR, grade: 'abyss',
+    texture: 'item_armor', requiredLevel: 35,
+    stats: { VIT: 75, defense: 170, RES: 55, STR: 22 },
+    description: '심연의 흑철과 어둠의 천을 결합한 갑옷. 물리·마법 모두를 막아낸다.'
+  },
+  abyss_leggings: {
+    key: 'abyss_leggings', name: '심연의 각반',
+    type: 'equipment', slot: ITEM_SLOTS.PANTS, grade: 'abyss',
+    texture: 'item_pants', requiredLevel: 35,
+    stats: { VIT: 45, defense: 100, AGI: 22 },
+    description: '심연의 어둠이 스며든 각반. 발걸음에서 그림자가 피어오른다.'
+  },
+  abyss_gauntlets: {
+    key: 'abyss_gauntlets', name: '심연의 건틀릿',
+    type: 'equipment', slot: ITEM_SLOTS.GLOVES, grade: 'abyss',
+    texture: 'item_gloves', requiredLevel: 35,
+    stats: { STR: 35, defense: 80, critRate: 0.06, attackPower: 40 },
+    description: '심연의 힘이 깃든 건틀릿. 주먹을 쥐면 어둠의 기운이 뿜어져 나온다.'
+  },
+  abyss_treads: {
+    key: 'abyss_treads', name: '심연의 전투화',
+    type: 'equipment', slot: ITEM_SLOTS.BOOTS, grade: 'abyss',
+    texture: 'item_boots', requiredLevel: 35,
+    stats: { AGI: 40, defense: 70, moveSpeed: 20, VIT: 15 },
+    description: '심연의 어둠 위를 걷도록 만들어진 전투화. 착용자의 발소리가 사라진다.'
+  },
+  abyss_signet: {
+    key: 'abyss_signet', name: '심연의 인장반지',
+    type: 'equipment', slot: ITEM_SLOTS.RING1, grade: 'abyss',
+    texture: 'item_ring', requiredLevel: 35,
+    stats: { STR: 25, INT: 25, critDamage: 0.30 },
+    description: '심연 군주의 인장이 새겨진 반지. 착용자의 공격에 어둠의 각인이 새겨진다.'
+  },
+  abyss_talisman: {
+    key: 'abyss_talisman', name: '심연의 부적',
+    type: 'equipment', slot: ITEM_SLOTS.NECKLACE, grade: 'abyss',
+    texture: 'item_necklace', requiredLevel: 35,
+    stats: { RES: 50, VIT: 25, critRate: 0.08, WIS: 20 },
+    description: '심연의 에너지를 응축한 부적. 착용자를 어둠의 공격으로부터 보호한다.'
   },
 
   // ═══════════════════════════════════════════

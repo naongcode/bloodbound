@@ -32,7 +32,8 @@ export default class BootScene extends Phaser.Scene {
 
     // 실제 사운드 파일 로드
     this.load.audio('bgm_field',          'assets/sounds/1. base bgm - jojos-golden-wind_kL2WElB.mp3');
-    this.load.audio('bgm_dungeon',        'assets/sounds/11. dungeon bgm - passo-bem-solto-slowed.mp3');
+    this.load.audio('bgm_dungeon',        'assets/sounds/12. dungeon bgm - no-batidao-zxkai.mp3');
+    this.load.audio('bgm_boss_main',      'assets/sounds/13. dungeon bgm - montagem-hikari_ANsz0qV.mp3');
     this.load.audio('sfx_boss_popup',     'assets/sounds/3. dungeon boss popup - gongseubgyeongbo_lfHPliG.mp3');
     this.load.audio('sfx_item_box',       'assets/sounds/4. dungeon item box - ta-da_yrvBrlS.mp3');
     this.load.audio('sfx_dungeon_boss_die','assets/sounds/8. dungeon boss died - jabassjyo.mp3');

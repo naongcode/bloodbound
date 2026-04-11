@@ -138,11 +138,9 @@ export default class SaveSystem {
     player.inventory.slots     = padded;
     player.inventory.equipment = data.equipment ?? {};
 
-    player.maxHp = calcMaxHp(player.jobData, player.stats, player.level);
-    player.maxMp = calcMaxMp(player.jobData, player.stats, player.level);
-    player.hp    = Math.min(data.hp ?? player.maxHp, player.maxHp);
-    player.mp    = Math.min(data.mp ?? player.maxMp, player.maxMp);
-
+    // recalcStats를 먼저 호출해 장비 반영 후 maxHp/maxMp를 확정한 뒤 hp/mp를 설정
     inventorySystem.recalcStats(player);
+    player.hp = Math.min(data.hp ?? player.maxHp, player.maxHp);
+    player.mp = Math.min(data.mp ?? player.maxMp, player.maxMp);
   }
 }

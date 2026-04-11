@@ -208,9 +208,19 @@ export default class DungeonScene extends Phaser.Scene {
   _startWaveVisuals(wave) {
     this.showWaveBanner(wave.label, wave.boss);
     this.updateWaveHUD();
-    this.sound.stopByKey('bgm_dungeon');
-    this.sound.play('bgm_dungeon', { loop: false, volume: 0.5 });
-    if (wave.boss) this.sound.play('sfx_boss_popup', { volume: 0.5 });
+    if (this._waveIdx === 0) {
+      this.sound.stopByKey('bgm_dungeon');
+      this.sound.play('bgm_dungeon', { loop: false, volume: 0.5 });
+    }
+    if (wave.boss) {
+      this.sound.play('sfx_boss_popup', { volume: 0.5 });
+      this.time.delayedCall(5000, () => {
+        if (!this.scene.isActive('DungeonScene')) return;
+        this.sound.stopByKey('bgm_dungeon');
+        this.sound.stopByKey('bgm_boss_main');
+        this.sound.play('bgm_boss_main', { loop: true, volume: 0.5 });
+      });
+    }
   }
 
   /** 호스트용: 웨이브 스폰 데이터 생성 (netId + 위치 포함) */
@@ -382,8 +392,8 @@ export default class DungeonScene extends Phaser.Scene {
       2: ['hp_potion_medium', 'soldiers_sword', 'iron_plate', 'swift_boots', 'chainmail'],
       3: ['crusader_sword', 'guard_helm', 'iron_plate', 'iron_gauntlets', 'abyss_pendant'],
       4: ['bloodkin_blade', 'bloodbound_armor', 'blood_crown', 'shadow_treads', 'abyss_ring'],
-      5: ['demon_blade', 'void_bow', 'void_staff', 'abyss_plate', 'abyss_crown'],
-      6: ['demon_blade', 'soul_bow', 'void_staff', 'abyss_crown', 'void_sovereign_blade', 'abyss_sovereign_bow', 'transcendent_staff'],
+      5: ['abyss_edge', 'abyss_longbow', 'abyss_grimoire', 'abyss_helm', 'abyss_robe', 'abyss_leggings', 'abyss_gauntlets', 'abyss_treads', 'abyss_signet', 'abyss_talisman'],
+      6: ['abyss_edge', 'abyss_longbow', 'abyss_grimoire', 'abyss_robe', 'abyss_helm', 'void_sovereign_blade', 'abyss_sovereign_bow', 'transcendent_staff'],
       7: ['void_sovereign_blade', 'abyss_sovereign_bow', 'transcendent_staff', 'transcendent_armor'],
     };
     const possibleItems = itemPools[this._difficulty] || itemPools[1];
@@ -458,6 +468,7 @@ export default class DungeonScene extends Phaser.Scene {
       if (monster === this._bossTarget) this._bossTarget = null;
       if (monster.isBoss) {
         this.sound.stopByKey('bgm_dungeon');
+        this.sound.stopByKey('bgm_boss_main');
         this.sound.play('sfx_dungeon_boss_die', { volume: 0.5 });
       }
       // 웨이브 클리어 체크 (약간 딜레이)
@@ -857,6 +868,8 @@ export default class DungeonScene extends Phaser.Scene {
   exitDungeon(save = true) {
     if (save) SaveSystem.saveChar(this._charId, this.player);
     if (this._isMulti) Network.leaveRoom();
+    this.sound.stopByKey('bgm_dungeon');
+    this.sound.stopByKey('bgm_boss_main');
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.stop('UIScene');
@@ -1057,6 +1070,7 @@ export default class DungeonScene extends Phaser.Scene {
       if (m === this._bossTarget) this._bossTarget = null;
       if (m.isBoss) {
         this.sound.stopByKey('bgm_dungeon');
+        this.sound.stopByKey('bgm_boss_main');
         this.sound.play('sfx_dungeon_boss_die', { volume: 0.5 });
       }
       this.time.delayedCall(500, () => this.checkWaveCleared());

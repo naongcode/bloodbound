@@ -354,6 +354,12 @@ export default class UIScene extends Phaser.Scene {
     const divider = this.add.rectangle(0, equipY + 130, pw, 1, 0x444466).setOrigin(0);
     this.invPanel.add(divider);
 
+    // 잠금 힌트
+    const lockHint = this.add.text(pw - 10, equipY + 134, '🔒 우클릭: 아이템 잠금 / 해제', {
+      fontSize: '10px', fill: '#888888',
+    }).setOrigin(1, 0);
+    this.invPanel.add(lockHint);
+
     // ── 인벤토리 그리드 (48칸, 8열 6행) ─────────────
     const gridX = 20, gridY = equipY + 140;
     const cellSize = 44, cols = 8;
@@ -378,12 +384,18 @@ export default class UIScene extends Phaser.Scene {
         slotBg.setFillStyle(0x2c2c4a);
         this._hideItemTooltip();
       });
-      slotBg.on('pointerdown',  () => this.onInventorySlotClick(i));
-      // 우클릭(또는 두 번째 포인터 버튼) → 잠금 토글
+      slotBg.on('pointerdown', (ptr) => {
+        if (ptr.leftButtonDown()) this.onInventorySlotClick(i);
+      });
+      // 우클릭 → 잠금 토글 (장착 안 됨)
       slotBg.on('pointerup', (ptr) => {
         if (ptr.rightButtonReleased()) {
           const item = this.player?.inventory?.slots[i];
-          if (item) { item.locked = !item.locked; this.refreshInventory(); }
+          if (item) {
+            item.locked = !item.locked;
+            this._showFeedback(item.locked ? '🔒 아이템 잠금' : '🔓 잠금 해제', item.locked ? '#f1c40f' : '#aaaaaa');
+            this.refreshInventory();
+          }
         }
       });
 
@@ -596,8 +608,9 @@ export default class UIScene extends Phaser.Scene {
       const gfx = this.invSlotGfx[i];
       if (!gfx) return;
 
-      if (gfx.icon) { gfx.icon.destroy(); gfx.icon = null; }
-      if (gfx.qty)  { gfx.qty.destroy();  gfx.qty  = null; }
+      if (gfx.icon)     { gfx.icon.destroy();     gfx.icon     = null; }
+      if (gfx.qty)      { gfx.qty.destroy();      gfx.qty      = null; }
+      if (gfx.lockIcon) { gfx.lockIcon.destroy(); gfx.lockIcon = null; }
 
       if (item) {
         gfx.icon = this.add.image(gfx.cx + 22, gfx.cy + 22, item.texture)
@@ -612,27 +625,24 @@ export default class UIScene extends Phaser.Scene {
           this.invPanel.add(gfx.qty);
         }
 
-        // 잠금 아이콘
+        // 잠금 아이콘 — icon 다음에 add해야 위에 그려짐
         if (item.locked) {
-          if (!gfx.lockIcon) {
-            gfx.lockIcon = this.add.text(gfx.cx + 2, gfx.cy + 2, '🔒', {
-              fontSize: '9px',
-            }).setDepth(2);
-            this.invPanel.add(gfx.lockIcon);
-          }
-        } else if (gfx.lockIcon) {
-          gfx.lockIcon.destroy(); gfx.lockIcon = null;
+          gfx.lockIcon = this.add.text(gfx.cx + 2, gfx.cy + 2, '🔒', {
+            fontSize: '11px',
+            stroke: '#000000', strokeThickness: 2,
+          });
+          this.invPanel.add(gfx.lockIcon);
         }
 
-        // 등급 색상: 테두리 굵게 + 배경색 미묘하게
+        // 등급 색상: 배경 + 테두리
         const hexCol = gradeHexColor(item.grade);
         const _BG = {
-          common: 0x2c2c2c, uncommon: 0x182818, rare: 0x181828,
-          epic: 0x201828,   legendary: 0x281e10, abyss: 0x250a0a,
-          transcendent: 0x280a28,
+          common: 0x303030, uncommon: 0x0e2a14, rare: 0x0c1a30,
+          epic: 0x1e0c30,   legendary: 0x2e1800, abyss: 0x2a0808,
+          transcendent: 0x2a2000,
         };
         gfx.bg.setFillStyle(_BG[item.grade] ?? 0x2c2c4a);
-        gfx.bg.setStrokeStyle(3, hexCol);
+        gfx.bg.setStrokeStyle(2, hexCol);
       } else {
         if (gfx.lockIcon) { gfx.lockIcon.destroy(); gfx.lockIcon = null; }
         gfx.bg.setFillStyle(0x2c2c4a).setStrokeStyle(1, 0x444466);
@@ -644,6 +654,11 @@ export default class UIScene extends Phaser.Scene {
 
   refreshEquipment() {
     const equip = this.player.inventory.equipment;
+    const _EQUIP_BG = {
+      common: 0x303030, uncommon: 0x0e2a14, rare: 0x0c1a30,
+      epic: 0x1e0c30,   legendary: 0x2e1800, abyss: 0x2a0808,
+      transcendent: 0x280a28,
+    };
     Object.entries(this.equipSlotGfx).forEach(([slot, gfx]) => {
       if (gfx.icon) { gfx.icon.destroy(); gfx.icon = null; }
       const item = equip[slot];
@@ -651,9 +666,11 @@ export default class UIScene extends Phaser.Scene {
         gfx.icon = this.add.image(gfx.x + 26, gfx.y + 26, item.texture)
           .setOrigin(0.5).setDisplaySize(36, 36);
         this.invPanel.add(gfx.icon);
-        gfx.bg.setStrokeStyle(2, 0xf1c40f);
+        const hexCol = gradeHexColor(item.grade);
+        gfx.bg.setFillStyle(_EQUIP_BG[item.grade] ?? 0x2c2c4a);
+        gfx.bg.setStrokeStyle(2, hexCol);
       } else {
-        gfx.bg.setStrokeStyle(1, 0x555577);
+        gfx.bg.setFillStyle(0x2c2c4a).setStrokeStyle(1, 0x555577);
       }
     });
   }
@@ -830,7 +847,7 @@ export default class UIScene extends Phaser.Scene {
 
     const GRADE_LABEL = {
       common: '일반', uncommon: '고급', rare: '희귀',
-      epic: '영웅', legendary: '전설', abyss: '심연',
+      epic: '영웅', legendary: '전설', abyss: '심연', transcendent: '초월',
     };
     const STAT_LABEL = {
       STR: '힘', AGI: '민첩', INT: '지능', VIT: '체력', WIS: '지혜',
