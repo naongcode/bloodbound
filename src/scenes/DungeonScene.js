@@ -24,15 +24,30 @@ const DIFF_TABLE = {
   7: { hpMult: 5.5, dmgMult: 4.0, speedMult: 2.2,  rewardMult: 9.0 },
 };
 
-// 웨이브 풀 (난이도에 따라 앞에서부터 waveCount-1개 사용 + 보스 웨이브)
-const WAVE_POOL = [
-  { label: '1웨이브', monsters: [{ key: 'blood_slime', count: 5 }, { key: 'blood_bat', count: 3 }] },
-  { label: '2웨이브', monsters: [{ key: 'blood_slime', count: 3 }, { key: 'blood_bat', count: 3 }, { key: 'bloodfang_wolf', count: 2 }] },
-  { label: '3웨이브', monsters: [{ key: 'bloodfang_wolf', count: 3 }, { key: 'blood_archer', count: 3 }] },
-  { label: '4웨이브', monsters: [{ key: 'blood_kin', count: 2 }, { key: 'blood_archer', count: 3 }, { key: 'crimson_spider', count: 2 }] },
-  { label: '5웨이브', monsters: [{ key: 'blood_kin', count: 3 }, { key: 'poison_mage', count: 2 }] },
-  { label: '6웨이브', monsters: [{ key: 'shadow_knight', count: 1 }, { key: 'blood_kin', count: 3 }, { key: 'poison_mage', count: 2 }] },
-  { label: '7웨이브', monsters: [{ key: 'shadow_knight', count: 2 }, { key: 'blood_archer', count: 4 }, { key: 'poison_mage', count: 2 }] },
+// 난이도 구간별 웨이브 풀
+// Tier1: 난이도 1~2 (일반/고급)
+const WAVE_POOL_T1 = [
+  { label: '1웨이브', monsters: [{ key: 'blood_slime', count: 6 }, { key: 'blood_bat', count: 4 }] },
+  { label: '2웨이브', monsters: [{ key: 'blood_bat', count: 5 }, { key: 'bloodfang_wolf', count: 4 }] },
+  { label: '3웨이브', monsters: [{ key: 'bloodfang_wolf', count: 5 }, { key: 'blood_archer', count: 4 }] },
+  { label: '4웨이브', monsters: [{ key: 'blood_archer', count: 5 }, { key: 'crimson_spider', count: 4 }] },
+  { label: '5웨이브', monsters: [{ key: 'blood_kin', count: 4 }, { key: 'poison_mage', count: 3 }] },
+];
+// Tier2: 난이도 3~4 (잔혹/악몽) — 강한 몬스터 + 개체수 증가
+const WAVE_POOL_T2 = [
+  { label: '1웨이브', monsters: [{ key: 'bloodfang_wolf', count: 6 }, { key: 'blood_archer', count: 5 }] },
+  { label: '2웨이브', monsters: [{ key: 'blood_archer', count: 6 }, { key: 'crimson_spider', count: 5 }, { key: 'blood_bat', count: 4 }] },
+  { label: '3웨이브', monsters: [{ key: 'blood_kin', count: 6 }, { key: 'blood_archer', count: 5 }, { key: 'poison_mage', count: 3 }] },
+  { label: '4웨이브', monsters: [{ key: 'blood_kin', count: 7 }, { key: 'shadow_knight', count: 2 }, { key: 'poison_mage', count: 4 }] },
+  { label: '5웨이브', monsters: [{ key: 'shadow_knight', count: 3 }, { key: 'blood_kin', count: 6 }, { key: 'poison_mage', count: 4 }] },
+];
+// Tier3: 난이도 5~7 (심연/공허/초월) — 강력한 몬스터만 + 대규모 개체수
+const WAVE_POOL_T3 = [
+  { label: '1웨이브', monsters: [{ key: 'blood_kin', count: 8 }, { key: 'blood_archer', count: 6 }, { key: 'poison_mage', count: 4 }] },
+  { label: '2웨이브', monsters: [{ key: 'shadow_knight', count: 4 }, { key: 'blood_kin', count: 7 }, { key: 'blood_archer', count: 6 }] },
+  { label: '3웨이브', monsters: [{ key: 'shadow_knight', count: 5 }, { key: 'poison_mage', count: 5 }, { key: 'blood_kin', count: 7 }] },
+  { label: '4웨이브', monsters: [{ key: 'shadow_knight', count: 6 }, { key: 'poison_mage', count: 6 }, { key: 'blood_archer', count: 7 }] },
+  { label: '5웨이브', monsters: [{ key: 'shadow_knight', count: 7 }, { key: 'poison_mage', count: 6 }, { key: 'blood_kin', count: 7 }] },
 ];
 
 const BOSS_BY_DIFF = {
@@ -75,8 +90,9 @@ export default class DungeonScene extends Phaser.Scene {
     // 난이도1→4, 난이도2→5, 난이도3+→6웨이브 고정
     const waveCount = diff >= 3 ? 6 : 3 + diff;
     const boss    = BOSS_BY_DIFF[diff] || BOSS_BY_DIFF[1];
+    const pool = diff <= 2 ? WAVE_POOL_T1 : diff <= 4 ? WAVE_POOL_T2 : WAVE_POOL_T3;
     this._waves   = [
-      ...WAVE_POOL.slice(0, waveCount - 1),
+      ...pool.slice(0, waveCount - 1),
       { label: boss.label, boss: true, monsters: [{ key: boss.key, count: 1, boss: true }] },
     ];
     this._diffCfg = diffCfg;
@@ -392,7 +408,7 @@ export default class DungeonScene extends Phaser.Scene {
       2: ['hp_potion_medium', 'soldiers_sword', 'iron_plate', 'swift_boots', 'chainmail'],
       3: ['crusader_sword', 'guard_helm', 'iron_plate', 'iron_gauntlets', 'abyss_pendant'],
       4: ['bloodkin_blade', 'bloodbound_armor', 'blood_crown', 'shadow_treads', 'abyss_ring'],
-      5: ['abyss_edge', 'abyss_longbow', 'abyss_grimoire', 'abyss_helm', 'abyss_robe', 'abyss_leggings', 'abyss_gauntlets', 'abyss_treads', 'abyss_signet', 'abyss_talisman'],
+      5: ['abyss_edge', 'abyss_helm', 'abyss_robe', 'abyss_leggings', 'abyss_gauntlets', 'abyss_treads', 'abyss_signet', 'abyss_talisman'],
       6: ['abyss_edge', 'abyss_longbow', 'abyss_grimoire', 'abyss_robe', 'abyss_helm', 'void_sovereign_blade', 'abyss_sovereign_bow', 'transcendent_staff'],
       7: ['void_sovereign_blade', 'abyss_sovereign_bow', 'transcendent_staff', 'transcendent_armor'],
     };
@@ -434,10 +450,22 @@ export default class DungeonScene extends Phaser.Scene {
 
   // ── 이벤트 설정 ──────────────────────────────────────────
   setupEvents() {
-    // 원거리 투사체
+    // 플레이어 원거리 투사체
     this.events.on('playerShoot', ({ fromX, fromY, toX, toY, damage, isCrit, maxRange }) => {
       this._bullets.push(new Projectile(this, fromX, fromY, toX, toY, { damage, isCrit, maxRange }));
       if (isCrit) this.cameras.main.shake(60, 0.002);
+    });
+
+    // 몬스터 원거리 투사체
+    this.events.on('monsterShoot', ({ x, y, tx, ty, damage, projColor, projSpeed }) => {
+      this._monsterBullets = this._monsterBullets ?? [];
+      this._monsterBullets.push(new Projectile(this, x, y, tx, ty, {
+        damage,
+        speed:     projSpeed ?? 200,
+        maxRange:  480,
+        color:     projColor ?? 0xff4444,
+        sizeScale: 1.2,
+      }));
     });
 
     // 근접 공격
@@ -709,7 +737,10 @@ export default class DungeonScene extends Phaser.Scene {
     this.player.inventory.gold += Math.floor(gold * 1.5 * rewardScale);
 
     if (data.dropTable) {
+      const isLastWave = this._waveIdx >= this._waves.length - 1;
       data.dropTable.forEach(drop => {
+        // 마지막 웨이브(보스) 제외 — 장비 드롭 차단, 재료만 허용
+        if (!isLastWave && ITEM_DATA[drop.itemKey]?.type === 'equipment') return;
         if (Math.random() < drop.chance * 1.2) {
           const qty = Phaser.Math.Between(drop.quantity[0], drop.quantity[1]);
           const added = this.inventorySystem.addItem(this.player.inventory, drop.itemKey, qty);
@@ -892,11 +923,19 @@ export default class DungeonScene extends Phaser.Scene {
       if (m.active && m.update) m.update(time, delta);
     });
 
-    // 투사체
+    // 플레이어 투사체
     this._bullets = this._bullets.filter(b => {
       if (!b.active) return false;
       return b.tick(delta, this.monsters.getChildren(), this);
     });
+
+    // 몬스터 투사체 (일반 원거리 + 보스 탄막)
+    if (this._monsterBullets?.length) {
+      this._monsterBullets = this._monsterBullets.filter(b => {
+        if (!b.active) return false;
+        return b.tickVsPlayer(delta, this.player, this);
+      });
+    }
 
     // 신규 보스 원거리 패턴 업데이트
     this._updateRangedBosses(delta);

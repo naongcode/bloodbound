@@ -88,6 +88,30 @@ export default class Projectile {
     return true;
   }
 
+  // 몬스터 투사체용 — 플레이어를 타겟으로 이동 및 충돌 체크
+  tickVsPlayer(delta, player, scene) {
+    if (!this.active) return false;
+
+    const dt = delta / 1000;
+    this.x += this._vx * dt;
+    this.y += this._vy * dt;
+
+    const angle = Math.atan2(this._vy, this._vx);
+    this._drawAt(this.x, this.y, angle);
+
+    if (Phaser.Math.Distance.Between(this._startX, this._startY, this.x, this.y) >= this.maxRange) {
+      this.destroy(); return false;
+    }
+
+    if (player?.isAlive && Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y) < 20) {
+      player.takeDamage(this.damage, 0, null);
+      scene.sound.play('sfx_hit_player', { volume: 0.45 });
+      this.destroy(); return false;
+    }
+
+    return true;
+  }
+
   destroy() {
     this.active = false;
     if (this.onExplode) this.onExplode(this.x, this.y);

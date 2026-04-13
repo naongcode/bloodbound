@@ -138,14 +138,15 @@ export default class GameScene extends Phaser.Scene {
       this.scene.bringToTop('UIScene');
       this.cameras.main.fadeIn(300, 0, 0, 0);
       // 던전에서 돌아온 경우 세이브 데이터 반영
+      // saveChar는 async라 Supabase 업로드가 완료되기 전에 loadChar(클라우드)를 호출하면
+      // 이전 데이터로 덮어써 보상이 사라지는 버그 발생 → loadCharSync(localStorage) 사용
       if (data?.loadSave && this._charId) {
-        SaveSystem.loadChar(this._charId).then(saveData => {
-          if (saveData) {
-            SaveSystem.apply(this.player, saveData, this.inventorySystem);
-            this.events.emit('statsChanged', this.player);
-            this.events.emit('inventoryChanged', this.player.inventory);
-          }
-        }).catch(e => console.warn('[GameScene] wake 세이브 로드 실패:', e));
+        const saveData = SaveSystem.loadCharSync(this._charId);
+        if (saveData) {
+          SaveSystem.apply(this.player, saveData, this.inventorySystem);
+          this.events.emit('statsChanged', this.player);
+          this.events.emit('inventoryChanged', this.player.inventory);
+        }
       }
     });
   }
